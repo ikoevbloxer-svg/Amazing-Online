@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -21,33 +24,36 @@ jobs:
             17
             21
 
-      - name: Setup Gradle cache
-        uses: gradle/actions/setup-gradle@v4
-
       - name: Build mod (через gradlew)
+        id: build
+        continue-on-error: true
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew build --stacktrace --no-daemon 2>&1 | tee build.log
-
-      - name: Показать ошибки на странице сборки
-        if: failure()
-        run: |
-          {
-            echo "## Ошибки сборки"
-            echo '```'
-            grep -nE "error:|warning: \[removal\]|FAILED|What went wrong|Caused by|Could not|Exception|> " build.log | grep -v "^.*> Task .* UP-TO-DATE" | head -200
-            echo '```'
-            echo "## Конец лога"
-            echo '```'
-            tail -80 build.log
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-          grep -E "\.java:[0-9]+: error:" build.log | head -50 | while read -r line; do echo "::error::$line"; done
+          java -version 2>&1 | tee build.log
+          ./gradlew build --stacktrace --no-daemon 2>&1 | tee -a build.log
 
       - name: Upload JAR
-        if: success()
+        if: steps.build.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: rusgorod-mod
           path: build/libs/*.jar
+
+      - name: Сохранить лог в ветку build-log (чтобы Claude мог прочитать)
+        if: always()
+        run: |
+          mkdir -p /tmp/logrepo && cp build.log /tmp/logrepo/build.log || echo "no log" > /tmp/logrepo/build.log
+          echo "${{ steps.build.outcome }} $(date -u)" > /tmp/logrepo/STATUS.txt
+          ls build/libs > /tmp/logrepo/jars.txt 2>/dev/null || true
+          cd /tmp/logrepo
+          git init -q -b build-log
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "build log ${{ github.run_id }}"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" build-log
+
+      - name: Итог
+        if: steps.build.outcome != 'success'
+        run: exit 1

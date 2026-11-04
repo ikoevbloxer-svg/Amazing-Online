@@ -1,0 +1,16 @@
+{
+  "item.rusgorod.baton": "Police Baton",
+  "item.rusgorod.pm": "Makarov Pistol",
+  "item.rusgorod.ak74": "AK-74M",
+  "item.rusgorod.ammo_9mm": "9x18mm Ammo",
+  "item.rusgorod.ammo_545": "5.45x39mm Ammo",
+  "item.rusgorod.id_card": "ID Card",
+  "item.rusgorod.letter": "Letter",
+  "item.rusgorod.cargo_box": "Warehouse Cargo",
+  "item.rusgorod.citizen_spawn_egg": "Citizen Spawn Egg",
+  "block.rusgorod.litter": "Litter",
+  "entity.rusgorod.citizen": "Citizen",
+  "key.rusgorod.menu": "Faction menu (RusGorod)",
+  "key.categories.rusgorod": "RusGorod",
+  "itemGroup.rusgorod.main": "RusGorod"
+}

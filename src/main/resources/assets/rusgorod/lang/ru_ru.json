@@ -1,0 +1,16 @@
+{
+  "item.rusgorod.baton": "Резиновая палка ПР-73",
+  "item.rusgorod.pm": "Пистолет Макарова (ПМ)",
+  "item.rusgorod.ak74": "АК-74М",
+  "item.rusgorod.ammo_9mm": "Патроны 9×18 мм",
+  "item.rusgorod.ammo_545": "Патроны 5,45×39 мм",
+  "item.rusgorod.id_card": "Удостоверение",
+  "item.rusgorod.letter": "Письмо",
+  "item.rusgorod.cargo_box": "Груз со склада",
+  "item.rusgorod.citizen_spawn_egg": "Яйцо призыва жителя",
+  "block.rusgorod.litter": "Мусор",
+  "entity.rusgorod.citizen": "Житель",
+  "key.rusgorod.menu": "Меню фракций (РусГород)",
+  "key.categories.rusgorod": "РусГород",
+  "itemGroup.rusgorod.main": "РусГород"
+}

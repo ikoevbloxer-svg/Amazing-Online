@@ -19,7 +19,9 @@ java {
 
 legacyForge {
     // NeoForge для Minecraft 1.20.1
-    neoForgeVersion = "${minecraft_version}-${neo_version}"
+    enable {
+        neoForgeVersion = "${minecraft_version}-${neo_version}"
+    }
 
     runs {
         client {

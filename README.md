@@ -6,7 +6,9 @@
 
 ## Сборка
 
-Нужен **JDK 17** (как и для самого Minecraft 1.20.1).
+Нужен **JDK 17 или новее** для запуска Gradle (сам мод компилируется под Java 17 — нужный JDK скачается автоматически).
+Сборка — плагин ModDevGradle Legacy (`net.neoforged.moddev.legacyforge`) и Gradle 8.14.3 из обёртки `gradlew`.
+Не собирайте системным Gradle — только через `gradlew`.
 
 ```bash
 # Windows
@@ -15,7 +17,7 @@ gradlew.bat build
 ./gradlew build
 ```
 
-Готовый мод: `build/libs/rusgorod-1.0.0.jar` → положить в папку `mods` клиента/сервера с
+Готовый мод: `build/libs/rusgorod-1.0.0.jar` (если в `build/libs` два файла — берите тот, что без `-dev`/`-sources`) → положить в папку `mods` клиента/сервера с
 **NeoForge 1.20.1 (47.1.x)**. Для быстрой проверки без установки: `gradlew runClient`.
 
 Первая сборка скачает Minecraft и NeoForge (несколько минут, нужен интернет).

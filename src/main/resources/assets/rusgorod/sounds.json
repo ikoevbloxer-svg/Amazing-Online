@@ -1,0 +1,122 @@
+{
+ "gun.pistol": {
+  "sounds": [
+   {
+    "name": "rusgorod:pistol",
+    "stream": false
+   }
+  ]
+ },
+ "gun.pistol_heavy": {
+  "sounds": [
+   {
+    "name": "rusgorod:pistol_heavy",
+    "stream": false
+   }
+  ]
+ },
+ "gun.rifle": {
+  "sounds": [
+   {
+    "name": "rusgorod:rifle",
+    "stream": false
+   }
+  ]
+ },
+ "gun.smg": {
+  "sounds": [
+   {
+    "name": "rusgorod:smg",
+    "stream": false
+   }
+  ]
+ },
+ "gun.shotgun": {
+  "sounds": [
+   {
+    "name": "rusgorod:shotgun",
+    "stream": false
+   }
+  ]
+ },
+ "gun.sniper": {
+  "sounds": [
+   {
+    "name": "rusgorod:sniper",
+    "stream": false
+   }
+  ]
+ },
+ "gun.trauma": {
+  "sounds": [
+   {
+    "name": "rusgorod:trauma",
+    "stream": false
+   }
+  ]
+ },
+ "gun.reload": {
+  "sounds": [
+   {
+    "name": "rusgorod:reload",
+    "stream": false
+   }
+  ]
+ },
+ "gun.empty": {
+  "sounds": [
+   {
+    "name": "rusgorod:empty",
+    "stream": false
+   }
+  ]
+ },
+ "ui.hit": {
+  "sounds": [
+   {
+    "name": "rusgorod:hit",
+    "stream": false
+   }
+  ]
+ },
+ "ui.headshot": {
+  "sounds": [
+   {
+    "name": "rusgorod:headshot",
+    "stream": false
+   }
+  ]
+ },
+ "ui.notify": {
+  "sounds": [
+   {
+    "name": "rusgorod:notify",
+    "stream": false
+   }
+  ]
+ },
+ "ui.phone": {
+  "sounds": [
+   {
+    "name": "rusgorod:phone",
+    "stream": false
+   }
+  ]
+ },
+ "ui.siren": {
+  "sounds": [
+   {
+    "name": "rusgorod:siren",
+    "stream": false
+   }
+  ]
+ },
+ "gun.whiz": {
+  "sounds": [
+   {
+    "name": "rusgorod:whiz",
+    "stream": false
+   }
+  ]
+ }
+}

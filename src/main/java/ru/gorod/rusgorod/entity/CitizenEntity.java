@@ -251,19 +251,41 @@ public class CitizenEntity extends PathfinderMob {
         }
         Faction f = getFaction();
         switch (f) {
-            case UMVD -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 7 ? ModItems.PM.get() : ModItems.BATON.get()));
-            case UGIBDD -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BATON.get()));
-            case UFSIN -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BATON.get()));
-            case UFSB -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.PM.get()));
+            case UMVD -> {
+                {
+                    if (rank >= 9) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.PM.get()));
+                    else if (rank >= 4) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(random.nextInt(3) == 0 ? ModItems.AKS74U.get() : ModItems.PM.get()));
+                    else setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(random.nextBoolean() ? ModItems.PM.get() : ModItems.BATON.get()));
+                    if (rank >= 2 && rank < 9) setItemSlot(EquipmentSlot.CHEST, new ItemStack(ModItems.BRONIK.get()));
+                }
+            }
+            case UGIBDD -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 3 ? ModItems.PM.get() : ModItems.BATON.get()));
+            case UFSIN -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 6 ? ModItems.PM.get() : rank >= 2 ? ModItems.AKS74U.get() : ModItems.BATON.get()));
+            case UFSB -> {
+                setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank <= 4 && random.nextInt(3) == 0 ? ModItems.AKS74U.get() : ModItems.GRACH.get()));
+                if (rank <= 4) setItemSlot(EquipmentSlot.CHEST, new ItemStack(ModItems.BRONIK.get()));
+            }
             case ARMY -> {
-                setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 8 ? ModItems.PM.get() : ModItems.AK74.get()));
-                if (rank < 8) setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+                setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 8 ? ModItems.PM.get() : (rank >= 3 && rank <= 5 && random.nextInt(4) == 0) ? ModItems.SVD.get() : ModItems.AK74.get()));
+                if (rank < 8) {
+                    setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+                    setItemSlot(EquipmentSlot.CHEST, new ItemStack(ModItems.BRONIK.get()));
+                }
             }
-            case RUS_MAFIA, KAVKAZ_MAFIA -> {
-                if (rank >= 1) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.PM.get()));
+            case RUS_MAFIA -> {
+                if (rank >= 4) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.GRACH.get()));
+                else if (rank >= 1) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(random.nextInt(3) == 0 ? ModItems.AKS74U.get() : ModItems.TT.get()));
+                else setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BAT.get()));
             }
-            case BIKERS -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));
-            case SKINHEADS -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BATON.get()));
+            case KAVKAZ_MAFIA -> {
+                if (rank >= 4) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.PM.get()));
+                else if (rank >= 1) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(random.nextInt(3) == 0 ? ModItems.SAIGA12.get() : ModItems.TT.get()));
+                else setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.KNIFE.get()));
+            }
+            case BIKERS -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 2 ? (random.nextBoolean() ? ModItems.IZH43.get() : ModItems.SAIGA12.get())
+                    : (random.nextBoolean() ? Items.IRON_AXE : ModItems.KASTET.get())));
+            case SKINHEADS -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 3 && random.nextInt(3) == 0 ? ModItems.OSA.get()
+                    : random.nextBoolean() ? ModItems.BAT.get() : ModItems.BATON.get()));
             default -> {
             }
         }

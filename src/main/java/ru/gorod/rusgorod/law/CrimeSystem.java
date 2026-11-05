@@ -253,8 +253,12 @@ public final class CrimeSystem {
     public static void onPlayerShot(Player shooter, LivingEntity target) {
         if (!(shooter instanceof ServerPlayer p)) return;
         PlayerRecord r = GorodData.get(p.serverLevel()).player(p.getUUID());
-        if (!r.faction.isState() && p.getMainHandItem().getItem() instanceof GunItem && p.getRandom().nextInt(4) == 0) {
-            commitByPlayer(p, Article.UK_222, null);
+        if (!(p.getMainHandItem().getItem() instanceof GunItem)) return;
+        boolean selfDefense = target instanceof net.minecraft.world.entity.Mob m && m.getTarget() == p;
+        if (!WeaponLaw.legal(r, p.getMainHandItem().getItem())) {
+            if (p.getRandom().nextInt(3) == 0) commitByPlayer(p, Article.UK_222, null);
+        } else if (!WeaponLaw.armedService(r.faction) && !selfDefense && p.getRandom().nextInt(4) == 0) {
+            commitByPlayer(p, Article.KOAP_20_8, null); // применение гражданского оружия не для самообороны
         }
     }
 
@@ -380,6 +384,7 @@ public final class CrimeSystem {
         GorodData d = GorodData.get(level);
         PlayerRecord r = d.player(p.getUUID());
         if (r.wanted.isEmpty()) return;
+        WeaponLaw.confiscate(p, r);
         long day = level.getDayTime() / 24000L;
         boolean criminal = false;
         int sentence = 0;
@@ -427,6 +432,10 @@ public final class CrimeSystem {
         r.clearQuest();
         if (criminal) {
             r.everConvicted = true;
+            if (r.gunLicense) {
+                r.gunLicense = false;
+                p.sendSystemMessage(Component.literal("Лицензия ЛОА аннулирована (п. 3 ч. 1 ст. 26 ФЗ «Об оружии»).").withStyle(ChatFormatting.RED));
+            }
             r.recordUntilDay = day + worst.recordDays;
             r.civRep = Math.max(0, r.civRep - 15);
             if (r.faction.isState()) {

@@ -30,6 +30,7 @@ public class RusGorod {
 
         ModBlocks.BLOCKS.register(modBus);
         ModItems.ITEMS.register(modBus);
+        ru.gorod.rusgorod.registry.ModSounds.SOUNDS.register(modBus);
         ModEntities.ENTITIES.register(modBus);
         ModTabs.TABS.register(modBus);
 

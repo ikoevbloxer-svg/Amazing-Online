@@ -144,6 +144,10 @@ public class ServerEvents {
 
     @SubscribeEvent
     public void onDeath(LivingDeathEvent event) {
+        if (event.getSource().getEntity() instanceof ServerPlayer k && !(event.getEntity() instanceof net.minecraft.world.entity.animal.Animal)
+                && (event.getEntity() instanceof ServerPlayer || event.getEntity() instanceof ru.gorod.rusgorod.entity.CitizenEntity)) {
+            GorodData.get(k.serverLevel()).player(k.getUUID()).kills++;
+        }
         if (event.getEntity() instanceof ServerPlayer victim && event.getSource().getEntity() instanceof ServerPlayer killer && victim != killer) {
             CrimeSystem.onPlayerKilledPlayer(killer, victim);
         }

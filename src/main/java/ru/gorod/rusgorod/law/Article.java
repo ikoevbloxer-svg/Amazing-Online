@@ -18,6 +18,8 @@ public enum Article {
     KOAP_20_17("ст. 20.17 КоАП РФ", "Нарушение пропускного режима охраняемого объекта", true, Faction.UMVD, Severity.ADMIN, 1800, 3000),
     KOAP_20_20("ст. 20.20 КоАП РФ", "Потребление алкоголя в общественных местах", true, Faction.UMVD, Severity.ADMIN, 0, 500),
     KOAP_20_21("ст. 20.21 КоАП РФ", "Появление в общественных местах в состоянии опьянения", true, Faction.UMVD, Severity.ADMIN, 1200, 1000),
+    KOAP_19_13("ст. 19.13 КоАП РФ", "Заведомо ложный вызов специализированных служб", true, Faction.UMVD, Severity.ADMIN, 0, 1500),
+    KOAP_20_8("ст. 20.8 КоАП РФ", "Нарушение правил ношения и использования оружия", true, Faction.UMVD, Severity.ADMIN, 1200, 3000),
     KOAP_20_25("ст. 20.25 КоАП РФ", "Неуплата административного штрафа в срок", true, Faction.UMVD, Severity.ADMIN, 1800, 2000),
 
     // ---------- УК РФ ----------
@@ -36,6 +38,7 @@ public enum Article {
     UK_213("ст. 213 УК РФ", "Хулиганство", false, Faction.UMVD, Severity.MEDIUM, 4800, 0),
     UK_214("ст. 214 УК РФ", "Вандализм", false, Faction.UMVD, Severity.MINOR, 2400, 0),
     UK_222("ст. 222 УК РФ", "Незаконный оборот оружия", false, Faction.UMVD, Severity.MEDIUM, 7200, 0),
+    UK_223("ст. 223 УК РФ", "Незаконное изготовление оружия (укорачивание ствола)", false, Faction.UMVD, Severity.MEDIUM, 7200, 0),
     UK_228_1("ст. 228.1 УК РФ", "Незаконный сбыт наркотических средств", false, Faction.UMVD, Severity.ESPECIALLY_GRAVE, 14000, 0),
     UK_282_1("ст. 282.1 УК РФ", "Организация экстремистского сообщества", false, Faction.SK, Severity.GRAVE, 12000, 0),
     UK_290("ст. 290 УК РФ", "Получение взятки", false, Faction.SK, Severity.GRAVE, 12000, 0),

@@ -2,8 +2,6 @@ package ru.gorod.rusgorod.entity.ai;
 
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.Goal;
 import net.minecraft.world.entity.ai.util.DefaultRandomPos;
@@ -24,6 +22,7 @@ public class CitizenCombatGoal extends Goal {
     private final CitizenEntity c;
     private int attackCooldown;
     private int shootCooldown;
+    private int burst;
     private int fleeTicks;
     private int repath;
 
@@ -91,14 +90,22 @@ public class CitizenCombatGoal extends Goal {
                 : (t instanceof CitizenEntity tc && tc.isCombatant() && tc.getTarget() == c);
         boolean mayShoot = hasGun && (!arrestMode || armedResistance) && c.getFaction() != Faction.UGIBDD;
 
-        if (mayShoot && distSq > 9 && distSq < 30 * 30 && c.hasLineOfSight(t)) {
+        if (mayShoot && distSq > 9 && distSq < 40 * 40 && c.hasLineOfSight(t)) {
             c.getNavigation().stop();
+            GunItem gun = (GunItem) c.getMainHandItem().getItem();
+            // стрейф в бою — не стоять столбом
+            if (c.tickCount % 30 == 0 && c.getRandom().nextFloat() < 0.5f) {
+                Vec3 side = DefaultRandomPos.getPos(c, 4, 2);
+                if (side != null) c.getNavigation().moveTo(side.x, side.y, side.z, 0.9);
+            }
             if (shootCooldown <= 0) {
-                shootCooldown = 25 + c.getRandom().nextInt(15);
-                float dmg = ((GunItem) c.getMainHandItem().getItem()).getDamage();
-                level.playSound(null, c.blockPosition(), SoundEvents.CROSSBOW_SHOOT, SoundSource.HOSTILE, 1.2f, 1.8f);
-                if (c.getRandom().nextFloat() < 0.7f) t.hurt(level.damageSources().mobAttack(c), dmg);
-                c.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+                if (gun.npcShoot(level, c, c.getMainHandItem(), t)) {
+                    if (burst <= 0) burst = gun.spec.auto ? 2 + c.getRandom().nextInt(4) : 1;
+                    burst--;
+                    shootCooldown = burst > 0 ? gun.spec.delay() + 1 : 18 + c.getRandom().nextInt(16) + (gun.spec.kind() == GunItem.Kind.SNIPER ? 25 : 0);
+                } else {
+                    shootCooldown = 10;
+                }
             }
             return;
         }

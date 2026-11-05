@@ -54,6 +54,12 @@ public class PlayerRecord {
     public int lectureTicks;
     public int lectureSubject = -1;
     public boolean enrolled;
+    /** Лицензия ЛОА (ФЗ-150). */
+    public boolean gunLicense;
+    public int falseCalls;
+    public long lastCallTime = -10000;
+    public int taxiRides;
+    public int kills;
 
     // ---- задание
     public String questId = "";
@@ -135,6 +141,11 @@ public class PlayerRecord {
         t.putInt("lectureTicks", lectureTicks);
         t.putInt("lectureSubject", lectureSubject);
         t.putBoolean("enrolled", enrolled);
+        t.putBoolean("gunLicense", gunLicense);
+        t.putInt("falseCalls", falseCalls);
+        t.putLong("lastCall", lastCallTime);
+        t.putInt("taxiRides", taxiRides);
+        t.putInt("kills", kills);
         t.putString("quest", questId);
         t.putInt("questProgress", questProgress);
         t.putInt("questStay", questStay);
@@ -180,6 +191,11 @@ public class PlayerRecord {
         r.lectureTicks = t.getInt("lectureTicks");
         r.lectureSubject = t.contains("lectureSubject") ? t.getInt("lectureSubject") : -1;
         r.enrolled = t.getBoolean("enrolled");
+        r.gunLicense = t.getBoolean("gunLicense");
+        r.falseCalls = t.getInt("falseCalls");
+        r.lastCallTime = t.contains("lastCall") ? t.getLong("lastCall") : -10000;
+        r.taxiRides = t.getInt("taxiRides");
+        r.kills = t.getInt("kills");
         r.questId = t.getString("quest");
         r.questProgress = t.getInt("questProgress");
         r.questStay = t.getInt("questStay");

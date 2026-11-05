@@ -25,7 +25,7 @@ import java.util.Comparator;
 import java.util.List;
 
 public final class Network {
-    private static final String PROTOCOL = "2";
+    private static final String PROTOCOL = "3";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(RusGorod.MODID, "main"), () -> PROTOCOL, PROTOCOL::equals, PROTOCOL::equals);
 
@@ -41,6 +41,8 @@ public final class Network {
                 .encoder(FactionActionPacket::encode).decoder(FactionActionPacket::decode).consumerMainThread(FactionActionPacket::handle).add();
         CHANNEL.messageBuilder(RanksPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
                 .encoder(RanksPacket::encode).decoder(RanksPacket::decode).consumerMainThread(RanksPacket::handle).add();
+        CHANNEL.messageBuilder(GunFxPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(GunFxPacket::encode).decoder(GunFxPacket::decode).consumerMainThread(GunFxPacket::handle).add();
     }
 
     public static void sendTo(ServerPlayer p, Object msg) {
@@ -126,6 +128,31 @@ public final class Network {
                     + "|" + x.pos.getX() + "|" + x.pos.getZ() + "|" + x.income));
         }
         t.put("turfs", turfs);
+        // ---- карта: границы и места
+        t.putIntArray("bounds", new int[]{d.minX, d.minZ, d.maxX, d.maxZ, d.baseMinX, d.baseMinZ, d.baseMaxX, d.baseMaxZ});
+        ListTag places = new ListTag();
+        for (var e : d.locs.entrySet()) {
+            if (ru.gorod.rusgorod.world.Places.get(e.getKey()) != null)
+                places.add(StringTag.valueOf(e.getKey() + "|" + e.getValue().getX() + "|" + e.getValue().getZ()));
+        }
+        t.put("places", places);
+        // ---- контакты смартфона: знакомые и друзья среди загруженных NPC
+        record Contact(int rel, String s) {
+        }
+        List<Contact> cl = new ArrayList<>();
+        if (d.generated) {
+            AABB cityBox = new AABB(d.minX - 32, level.getMinBuildHeight(), d.minZ - 32, Math.max(d.maxX, d.baseMaxX) + 32, level.getMaxBuildHeight(), Math.max(d.maxZ, d.baseMaxZ) + 32);
+            for (CitizenEntity c : level.getEntitiesOfClass(CitizenEntity.class, cityBox, c -> c.relation(p.getUUID()) >= ru.gorod.rusgorod.social.Relations.KNOWN)) {
+                String nm = c.getCustomName() != null ? c.getCustomName().getString() : "?";
+                String role = c.getFaction() == Faction.CIVILIAN ? c.profession.title : c.getFaction().isState() ? c.getFaction().positionName(c.rank) : c.getFaction().title;
+                int rel = c.relation(p.getUUID());
+                cl.add(new Contact(rel, c.getId() + "|" + nm + "|" + role + "|" + rel + "|" + (int) Math.sqrt(c.distanceToSqr(p)) + "|" + c.getFaction().color));
+            }
+        }
+        cl.sort(Comparator.comparingInt(Contact::rel).reversed());
+        ListTag contacts = new ListTag();
+        for (int i = 0; i < Math.min(20, cl.size()); i++) contacts.add(StringTag.valueOf(cl.get(i).s()));
+        t.put("contacts", contacts);
         sendTo(p, new SyncPacket(t));
     }
 

@@ -104,6 +104,7 @@ public final class DialogService {
         if (rel >= ru.gorod.rusgorod.social.Relations.FRIEND && (cf == Faction.CIVILIAN || cf == pf) && c.order == CitizenEntity.Order.NONE)
             opts.add(new String[]{"companion", "«Пойдём со мной» (10 минут)"});
         if (c.profession.isTrader() || cf == Faction.CIVILIAN && c.profession == Profession.BARMAN) opts.add(new String[]{"whorules", "«Кто вас крышует?»"});
+        if (ru.gorod.rusgorod.social.BlackMarket.canTrade(p, r, c)) opts.add(new String[]{"bm_open", "§8«Есть чё по стволам?» (чёрный рынок)"});
         if (cf.isState()) opts.add(new String[]{"introduce", "Попросить представиться"});
         if (cf != Faction.CIVILIAN) opts.add(new String[]{"boss", "Кто ваш начальник?"});
 
@@ -194,6 +195,14 @@ public final class DialogService {
         Faction cf = c.getFaction();
         c.getLookControl().setLookAt(p);
         String addr = Address.toPlayer(c, p, r);
+        if (option.equals("bm_open")) {
+            if (ru.gorod.rusgorod.social.BlackMarket.canTrade(p, r, c)) ru.gorod.rusgorod.social.BlackMarket.open(p, c);
+            return;
+        }
+        if (option.startsWith("bm_")) {
+            ru.gorod.rusgorod.social.BlackMarket.buy(p, c, option.substring(3));
+            return;
+        }
         if (option.startsWith("ap_")) {
             ru.gorod.rusgorod.social.NpcApproach.handle(p, c, option);
             return;

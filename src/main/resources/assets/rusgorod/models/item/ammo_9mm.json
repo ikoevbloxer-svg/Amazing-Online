@@ -1,6 +1,6 @@
 {
-  "parent": "minecraft:item/generated",
-  "textures": {
-    "layer0": "rusgorod:item/ammo_9mm"
-  }
+ "parent": "minecraft:item/generated",
+ "textures": {
+  "layer0": "rusgorod:item/ammo_9mm"
+ }
 }

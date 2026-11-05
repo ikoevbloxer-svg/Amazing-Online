@@ -13,20 +13,9 @@ public class ModTabs {
 
     public static final RegistryObject<CreativeModeTab> MAIN = TABS.register("main", () -> CreativeModeTab.builder()
             .title(Component.literal("РусГород"))
-            .icon(() -> new ItemStack(ModItems.ID_CARD.get()))
+            .icon(() -> new ItemStack(ModItems.AK74.get()))
             .displayItems((params, out) -> {
-                out.accept(ModItems.ID_CARD.get());
-                out.accept(ModItems.BATON.get());
-                out.accept(ModItems.CUFFS.get());
-                out.accept(ModItems.DIPLOMA.get());
-                out.accept(ModItems.PM.get());
-                out.accept(ModItems.AK74.get());
-                out.accept(ModItems.AMMO_9MM.get());
-                out.accept(ModItems.AMMO_545.get());
-                out.accept(ModItems.LETTER.get());
-                out.accept(ModItems.CARGO_BOX.get());
-                out.accept(ModItems.LITTER.get());
-                out.accept(ModItems.CITIZEN_SPAWN_EGG.get());
+                for (var ro : ModItems.ITEMS.getEntries()) out.accept(ro.get());
             })
             .build());
 }

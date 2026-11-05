@@ -42,6 +42,7 @@ public final class CityEvents {
         else if (roll < 5) pickpocket(level, d, p, r);
         else if (roll < 7) barFight(level, d, r);
         else if (roll < 8) raid(level, d, r);
+        else if (roll == 8) bankRobbery(level, d, r);
         else pickpocket(level, d, p, r);
     }
 
@@ -119,6 +120,50 @@ public final class CityEvents {
         });
         CrimeSystem.notifyFaction(level, Faction.UFSB, "[Оперативная информация] Сходка лидеров ОПГ у гаражей (X " + spot.getX() + ", Z " + spot.getZ() + ").", ChatFormatting.GOLD);
         CrimeSystem.notifyFaction(level, Faction.UMVD, "[Оперативная информация] У гаражей собираются вооружённые люди.", ChatFormatting.GOLD);
+    }
+
+    /** Вооружённый налёт на банк (ст. 162 ч. 4 УК РФ): перестрелка с полицией, награда за задержание. */
+    private static void bankRobbery(ServerLevel level, GorodData d, RandomSource r) {
+        BlockPos bank = d.loc("bank");
+        if (!level.isLoaded(bank)) return;
+        Faction f = r.nextBoolean() ? Faction.RUS_MAFIA : Faction.BIKERS;
+        List<CitizenEntity> crew = gang(level, d, f, 3);
+        if (crew.size() < 2) return;
+        int i = 0;
+        for (CitizenEntity c : crew) {
+            if (!(c.getMainHandItem().getItem() instanceof ru.gorod.rusgorod.item.GunItem))
+                c.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, new net.minecraft.world.item.ItemStack(
+                        i == 0 ? ru.gorod.rusgorod.registry.ModItems.AKS74U.get() : ru.gorod.rusgorod.registry.ModItems.TT.get()));
+            place(c, bank.offset(i++ - 1, 0, 2));
+            c.addWanted(Article.UK_162);
+            c.bounty = 2500;
+            CrimeSystem.registerWitnessedCase(level, c, Article.UK_162, bank);
+        }
+        CitizenEntity boss = crew.get(0);
+        boss.say("Всем на пол! Это ограбление! Деньги в сумку!", true);
+        Scheduler.later(60, () -> boss.say("Быстрее! Менты едут!", true));
+        level.playSound(null, bank, ru.gorod.rusgorod.registry.ModSounds.SIREN.get(), net.minecraft.sounds.SoundSource.NEUTRAL, 4f, 1f);
+        List<CitizenEntity> cops = new ArrayList<>();
+        for (CitizenEntity c : level.getEntitiesOfClass(CitizenEntity.class, new AABB(bank).inflate(140),
+                c -> (c.getFaction() == Faction.UMVD || c.getFaction() == Faction.UFSB) && !c.isBusy() && c.isCombatant())) {
+            if (cops.size() >= 5) break;
+            cops.add(c);
+        }
+        int n = 0;
+        for (CitizenEntity cop : cops) {
+            cop.order = CitizenEntity.Order.ASSAULT;
+            cop.holdPos = bank;
+            cop.orderUntil = level.getGameTime() + 2400;
+            cop.setTarget(crew.get(n++ % crew.size()));
+        }
+        d.budget = Math.max(0, d.budget - 20000);
+        d.addNews("ЧП: вооружённый налёт на банк! Полиция блокирует район. Награда за задержание — 2 500 ₽ за каждого.");
+        CrimeSystem.notifyFaction(level, Faction.UMVD, "[Дежурная часть] Вооружённое ограбление банка (X " + bank.getX() + ", Z " + bank.getZ() + "). Всем нарядам!", ChatFormatting.RED);
+        CrimeSystem.notifyFaction(level, Faction.UFSB, "[УФСБ] Налёт на банк. Возможна связь с ОПГ «" + f.title + "».", ChatFormatting.RED);
+        for (ServerPlayer pl : level.players()) {
+            if (d.inCity(pl.blockPosition()))
+                pl.sendSystemMessage(Component.literal("⚠ Налёт на банк! Грабители вооружены. Можно помочь задержать (ст. 38 УК РФ) — награда 2 500 ₽.").withStyle(ChatFormatting.RED));
+        }
     }
 
     /** Совместная облава полиции и ФСБ на точке ОПГ. */

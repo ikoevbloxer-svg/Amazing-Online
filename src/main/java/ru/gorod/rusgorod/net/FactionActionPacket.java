@@ -35,6 +35,16 @@ public class FactionActionPacket {
     public static void handle(FactionActionPacket m, Supplier<NetworkEvent.Context> ctx) {
         ServerPlayer p = ctx.get().getSender();
         if (p == null) return;
+        if (m.action.equals("reload")) {
+            net.minecraft.world.item.ItemStack st = p.getMainHandItem();
+            if (st.getItem() instanceof ru.gorod.rusgorod.item.GunItem g) g.startReload(p, st);
+            return;
+        }
+        if (m.action.startsWith("ph_")) {
+            ru.gorod.rusgorod.social.PhoneService.handle(p, m.action, m.arg);
+            Network.syncPlayer(p);
+            return;
+        }
         switch (m.action) {
             case "apply" -> FactionService.apply(p, Faction.byId(m.arg));
             case "leave" -> FactionService.leave(p);

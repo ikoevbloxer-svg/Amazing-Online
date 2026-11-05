@@ -263,37 +263,69 @@ public final class FactionService {
                 items.add(new ItemStack(ModItems.BATON.get()));
                 items.add(new ItemStack(ModItems.CUFFS.get()));
                 items.add(new ItemStack(ModItems.PM.get()));
-                items.add(new ItemStack(ModItems.AMMO_9MM.get(), 16));
+                items.add(new ItemStack(ModItems.AMMO_9MM.get(), 24));
+                if (r.rank >= 3) {
+                    items.add(new ItemStack(ModItems.AKS74U.get()));
+                    items.add(new ItemStack(ModItems.AMMO_545.get(), 60));
+                    items.add(new ItemStack(ModItems.BRONIK.get()));
+                }
             }
             case UGIBDD -> {
                 items.add(new ItemStack(ModItems.BATON.get()));
                 items.add(new ItemStack(ModItems.CUFFS.get()));
                 items.add(new ItemStack(ModItems.PM.get()));
-                items.add(new ItemStack(ModItems.AMMO_9MM.get(), 8));
+                items.add(new ItemStack(ModItems.AMMO_9MM.get(), 16));
             }
             case UFSIN -> {
                 items.add(new ItemStack(ModItems.BATON.get()));
                 items.add(new ItemStack(ModItems.CUFFS.get()));
+                if (r.rank >= 2) {
+                    items.add(new ItemStack(ModItems.AKS74U.get()));
+                    items.add(new ItemStack(ModItems.AMMO_545.get(), 30));
+                }
             }
             case UFSB -> {
                 items.add(new ItemStack(ModItems.CUFFS.get()));
-                items.add(new ItemStack(ModItems.PM.get()));
-                items.add(new ItemStack(ModItems.AMMO_9MM.get(), 16));
+                items.add(new ItemStack(ModItems.GRACH.get()));
+                items.add(new ItemStack(ModItems.AMMO_9X19.get(), 34));
+                items.add(new ItemStack(ModItems.BRONIK.get()));
             }
             case ARMY -> {
                 items.add(new ItemStack(ModItems.AK74.get()));
-                items.add(new ItemStack(ModItems.AMMO_545.get(), 30));
+                items.add(new ItemStack(ModItems.AMMO_545.get(), 90));
                 items.add(new ItemStack(Items.IRON_HELMET));
+                items.add(new ItemStack(ModItems.BRONIK.get()));
+                if (r.rank >= 3 && r.rank <= 6) {
+                    items.add(new ItemStack(ModItems.SVD.get()));
+                    items.add(new ItemStack(ModItems.AMMO_762X54.get(), 20));
+                }
+                if (r.rank >= 8) {
+                    items.add(new ItemStack(ModItems.PM.get()));
+                    items.add(new ItemStack(ModItems.AMMO_9MM.get(), 16));
+                }
             }
-            case RUS_MAFIA, KAVKAZ_MAFIA -> {
-                items.add(new ItemStack(ModItems.PM.get()));
-                items.add(new ItemStack(ModItems.AMMO_9MM.get(), 8));
+            case RUS_MAFIA -> {
+                items.add(new ItemStack(ModItems.TT.get()));
+                items.add(new ItemStack(ModItems.AMMO_762TT.get(), 16));
+                items.add(new ItemStack(ModItems.BAT.get()));
             }
-            case BIKERS -> items.add(new ItemStack(Items.IRON_AXE));
-            case SKINHEADS -> items.add(new ItemStack(ModItems.BATON.get()));
+            case KAVKAZ_MAFIA -> {
+                items.add(new ItemStack(ModItems.TT.get()));
+                items.add(new ItemStack(ModItems.AMMO_762TT.get(), 16));
+                items.add(new ItemStack(ModItems.KNIFE.get()));
+            }
+            case BIKERS -> {
+                items.add(new ItemStack(ModItems.KASTET.get()));
+                if (r.rank >= 2) {
+                    items.add(new ItemStack(ModItems.IZH43.get()));
+                    items.add(new ItemStack(ModItems.AMMO_12GA.get(), 10));
+                }
+            }
+            case SKINHEADS -> items.add(new ItemStack(ModItems.BAT.get()));
             default -> {
             }
         }
+        items.add(new ItemStack(ModItems.PHONE.get()));
         if (r.faction.isState() || r.faction == Faction.CIVILIAN) {
             ItemStack id = new ItemStack(ModItems.ID_CARD.get());
             id.setHoverName(Component.literal(r.faction == Faction.CIVILIAN ? "Паспорт гражданина РФ"

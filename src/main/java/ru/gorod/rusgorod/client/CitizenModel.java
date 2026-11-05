@@ -14,6 +14,23 @@ public class CitizenModel extends PlayerModel<CitizenEntity> {
     @Override
     public void setupAnim(CitizenEntity e, float limbSwing, float limbSwingAmount, float ageInTicks, float netHeadYaw, float headPitch) {
         super.setupAnim(e, limbSwing, limbSwingAmount, ageInTicks, netHeadYaw, headPitch);
+        if (e.getAnim() == CitizenEntity.ANIM_NONE && e.getMainHandItem().getItem() instanceof ru.gorod.rusgorod.item.GunItem) {
+            if (e.isAggressive()) {
+                // прицельная стойка: оружие у плеча, двумя руками
+                rightArm.xRot = -(float) Math.PI / 2f + head.xRot + 0.1f;
+                rightArm.yRot = -0.1f + head.yRot;
+                rightArm.zRot = 0f;
+                leftArm.xRot = -(float) Math.PI / 2f + head.xRot;
+                leftArm.yRot = 0.55f + head.yRot;
+                leftArm.zRot = 0f;
+            } else {
+                // «низкая готовность» — ствол вниз-вперёд
+                rightArm.xRot = -0.85f + Mth.sin(limbSwing * 0.6662f) * 0.08f * limbSwingAmount;
+                rightArm.yRot = -0.15f;
+                leftArm.xRot = -0.95f;
+                leftArm.yRot = 0.65f;
+            }
+        }
         switch (e.getAnim()) {
             case CitizenEntity.ANIM_SALUTE -> {
                 // Воинское приветствие: правая рука к головному убору

@@ -22,6 +22,10 @@ import ru.gorod.rusgorod.registry.ModEntities;
 
 public final class ClientSetup {
     public static final KeyMapping OPEN_MENU = new KeyMapping("key.rusgorod.menu", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.rusgorod");
+    public static final KeyMapping OPEN_MAP = new KeyMapping("key.rusgorod.map", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_M, "key.categories.rusgorod");
+    public static final KeyMapping OPEN_PHONE = new KeyMapping("key.rusgorod.phone", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, "key.categories.rusgorod");
+    public static final KeyMapping RELOAD = new KeyMapping("key.rusgorod.reload", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_R, "key.categories.rusgorod");
+    public static final KeyMapping MAP_ZOOM = new KeyMapping("key.rusgorod.zoom", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_N, "key.categories.rusgorod");
 
     @Mod.EventBusSubscriber(modid = RusGorod.MODID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
     public static final class ModBus {
@@ -52,6 +56,10 @@ public final class ClientSetup {
         @SubscribeEvent
         public static void keys(RegisterKeyMappingsEvent event) {
             event.register(OPEN_MENU);
+            event.register(OPEN_MAP);
+            event.register(OPEN_PHONE);
+            event.register(RELOAD);
+            event.register(MAP_ZOOM);
         }
 
         @SubscribeEvent
@@ -72,6 +80,40 @@ public final class ClientSetup {
                     mc.setScreen(new FactionScreen());
                 }
             }
+            while (OPEN_MAP.consumeClick()) {
+                if (mc.player != null && mc.screen == null) mc.setScreen(new MapScreen(null));
+            }
+            while (OPEN_PHONE.consumeClick()) {
+                if (mc.player != null && mc.screen == null) PhoneScreen.open();
+            }
+            while (RELOAD.consumeClick()) {
+                if (mc.player != null && mc.player.getMainHandItem().getItem() instanceof ru.gorod.rusgorod.item.GunItem)
+                    Network.sendToServer(new FactionActionPacket("reload", ""));
+            }
+            while (MAP_ZOOM.consumeClick()) {
+                HudOverlay.zoom = (HudOverlay.zoom + 1) % HudOverlay.ZOOMS.length;
+            }
+            if (mc.player == null) return;
+            GunClient.tick();
+            HudOverlay.tick();
+            try {
+                CityMap.tick();
+            } catch (Exception e) {
+                ru.gorod.rusgorod.RusGorod.LOGGER.debug("[RusGorod] map tick: {}", e.toString());
+            }
+        }
+
+        @SubscribeEvent
+        public static void fov(net.minecraftforge.client.event.ComputeFovModifierEvent event) {
+            event.setNewFovModifier(GunClient.fovModifier(event.getNewFovModifier()));
+        }
+
+        @SubscribeEvent
+        public static void logout(net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut event) {
+            CityMap.save();
+            CityMap.close();
+            ClientData.wpSet = false;
+            ClientData.tag = new net.minecraft.nbt.CompoundTag();
         }
     }
 

@@ -16,7 +16,7 @@ public final class HudOverlay {
         PlayerRecord r = ClientData.rec;
         Faction f = r.faction;
         int x = 4, y = 4;
-        String head = f == Faction.CIVILIAN ? "Гражданин" : f.title + " — " + f.rankName(r.rank);
+        String head = f == Faction.CIVILIAN ? "Гражданин" : f.title + " — " + f.rankName(r.rank) + (f.isState() && !r.uniform ? " (в гражданском)" : "");
         g.drawString(mc.font, head, x, y, 0xFF000000 | f.color | 0x404040, true);
         y += 10;
         g.drawString(mc.font, "Счёт: " + String.format("%,d", r.balance).replace(',', ' ') + " ₽", x, y, 0xFFE8D27A, true);
@@ -36,6 +36,22 @@ public final class HudOverlay {
                 g.drawString(mc.font, "Задание: " + q.title + " (" + r.questProgress + "/" + q.goal() + ")", x, y, 0xFF9AD0FF, true);
                 y += 10;
             }
+        }
+        if (r.enrolled && !r.legalEducation) {
+            int sub = ru.gorod.rusgorod.study.LawSchool.currentSubject(r);
+            if (sub >= 0) {
+                g.drawString(mc.font, "Юрфак: " + ru.gorod.rusgorod.study.LawSchool.SUBJECTS[sub].name() + " — лекции " + r.lectures[sub] + "/"
+                        + ru.gorod.rusgorod.study.LawSchool.LECTURES_PER_SUBJECT, x, y, 0xFFB0A0FF, true);
+                y += 10;
+            }
+        }
+        if (r.fineDebt > 0) {
+            g.drawString(mc.font, "Штрафы: " + r.fineDebt + " ₽", x, y, 0xFFFFA040, true);
+            y += 10;
+        }
+        if (r.cuffed) {
+            g.drawString(mc.font, "В НАРУЧНИКАХ", x, y, 0xFFFF4040, true);
+            y += 10;
         }
         if (ClientData.tag.getBoolean("rally")) {
             g.drawString(mc.font, "У администрации — митинг", x, y, 0xFFFFFF60, true);

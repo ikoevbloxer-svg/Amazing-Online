@@ -9,6 +9,7 @@ import ru.gorod.rusgorod.faction.Faction;
 import ru.gorod.rusgorod.faction.FactionService;
 import ru.gorod.rusgorod.job.JobManager;
 import ru.gorod.rusgorod.quest.QuestManager;
+import ru.gorod.rusgorod.study.LawSchool;
 
 import java.util.function.Supplier;
 
@@ -48,6 +49,24 @@ public class FactionActionPacket {
             case "job_take" -> JobManager.take(p, m.arg);
             case "job_quit" -> JobManager.quit(p);
             case "job_action" -> JobManager.action(p, m.arg);
+            case "uniform" -> FactionService.toggleUniform(p);
+            case "uni_enroll" -> LawSchool.enroll(p);
+            case "uni_exam" -> LawSchool.startExam(p);
+            case "pay_fines" -> {
+                PlayerRecord r = GorodData.get(p.serverLevel()).player(p.getUUID());
+                if (r.fineDebt > 0 && r.balance >= r.fineDebt) {
+                    r.balance -= r.fineDebt;
+                    GorodData.get(p.serverLevel()).budget += r.fineDebt;
+                    p.sendSystemMessage(net.minecraft.network.chat.Component.literal("«Госуслуги»: штрафы на " + r.fineDebt + " ₽ оплачены. Спасибо!")
+                            .withStyle(net.minecraft.ChatFormatting.GREEN));
+                    r.fineDebt = 0;
+                    r.fineDueDay = -1;
+                    r.wanted.remove(ru.gorod.rusgorod.law.Article.KOAP_20_25);
+                } else if (r.fineDebt > 0) {
+                    p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Недостаточно средств для оплаты " + r.fineDebt + " ₽.")
+                            .withStyle(net.minecraft.ChatFormatting.RED));
+                }
+            }
             default -> {
             }
         }

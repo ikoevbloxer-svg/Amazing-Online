@@ -8,6 +8,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import ru.gorod.rusgorod.data.GorodData;
 import ru.gorod.rusgorod.data.PlayerRecord;
@@ -18,21 +19,23 @@ import ru.gorod.rusgorod.registry.ModItems;
 public final class JobManager {
 
     public static void take(ServerPlayer p, String jobName) {
-        PlayerRecord r = GorodData.get(p.serverLevel()).player(p.getUUID());
+        ServerLevel level = p.serverLevel();
+        PlayerRecord r = GorodData.get(level).player(p.getUUID());
         Job job = Job.byName(jobName);
         if (job == null) return;
         if (r.faction != Faction.CIVILIAN) {
             msg(p, "Гражданские работы доступны только гражданским. Совмещение со службой ограничено (ст. 17 ФЗ № 342-ФЗ, ст. 14 ФЗ № 25-ФЗ).", ChatFormatting.RED);
             return;
         }
-        if (job == Job.STUDENT && r.legalEducation) {
-            msg(p, "У вас уже есть диплом юриста.", ChatFormatting.YELLOW);
+        if (job.needsCleanRecord && (r.hasActiveRecord(level.getDayTime() / 24000L) || r.isWanted())) {
+            msg(p, "Отказ: при непогашенной судимости или розыске удостоверение частного охранника не выдаётся (ст. 11.1 Закона № 2487-1).", ChatFormatting.RED);
             return;
         }
         r.job = job.name();
         r.jobCounter = 0;
         msg(p, "Вы приняты на работу: " + job.title + ". Трудовой договор заключён (ст. 67 ТК РФ). " + job.description, ChatFormatting.GREEN);
-        msg(p, job.pay, ChatFormatting.GRAY);
+        BlockPos at = GorodData.get(level).loc(job.placeKey);
+        msg(p, job.pay + " Место работы: X " + at.getX() + ", Z " + at.getZ() + ".", ChatFormatting.GRAY);
         Network.syncPlayer(p);
     }
 
@@ -53,7 +56,7 @@ public final class JobManager {
         switch (action) {
             case "cargo_take" -> {
                 if (job != Job.GRUZCHIK) return;
-                if (!near(p, d.loc("warehouse"), 12)) {
+                if (!near(p, d.loc("warehouse"), 14)) {
                     msg(p, "Подойдите к складу.", ChatFormatting.RED);
                     return;
                 }
@@ -117,44 +120,26 @@ public final class JobManager {
         }
         long t = level.getDayTime() % 24000L;
         boolean workTime = t < 11000L;
-        switch (job) {
-            case POCHTALION -> {
-                for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
-                    ItemStack s = p.getInventory().getItem(i);
-                    if (s.getItem() != ModItems.LETTER.get() || !s.hasTag()) continue;
-                    CompoundTag tag = s.getTag();
-                    if (tag == null || !tag.contains("ax")) continue;
-                    BlockPos addr = new BlockPos(tag.getInt("ax"), tag.getInt("ay"), tag.getInt("az"));
-                    if (near(p, addr, 4)) {
-                        s.shrink(1);
-                        pay(p, d, r, 150, "письмо доставлено");
-                    }
+        if (job == Job.POCHTALION) {
+            for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
+                ItemStack s = p.getInventory().getItem(i);
+                if (s.getItem() != ModItems.LETTER.get() || !s.hasTag()) continue;
+                CompoundTag tag = s.getTag();
+                if (tag == null || !tag.contains("ax")) continue;
+                BlockPos addr = new BlockPos(tag.getInt("ax"), tag.getInt("ay"), tag.getInt("az"));
+                if (near(p, addr, 4)) {
+                    s.shrink(1);
+                    pay(p, d, r, 150, "письмо доставлено");
                 }
             }
-            case PRODAVETS -> {
-                if (workTime && (near(p, d.loc("shop"), 10) || near(p, d.loc("market"), 12))) {
-                    r.jobCounter++;
-                    if (r.jobCounter % 60 == 0) pay(p, d, r, 220, "смена");
-                }
-            }
-            case STUDENT -> {
-                if (workTime && near(p, d.loc("university"), 12)) {
-                    r.jobCounter++;
-                    if (r.jobCounter % 60 == 0) {
-                        r.lectures++;
-                        r.balance += 100;
-                        msg(p, "Лекция прослушана (" + r.lectures + "/6). Стипендия +100 ₽.", ChatFormatting.AQUA);
-                        if (r.lectures >= 6) {
-                            r.legalEducation = true;
-                            r.job = "";
-                            r.civRep += 10;
-                            msg(p, "🎓 Вы защитили диплом! Высшее юридическое образование получено. Открыт путь в СК, прокуратуру и ФСБ, офицерские звания.", ChatFormatting.GOLD);
-                        }
-                        Network.syncPlayer(p);
-                    }
-                }
-            }
-            default -> {
+            return;
+        }
+        if (job.shiftPay > 0) {
+            boolean atWork = near(p, d.loc(job.placeKey), 12) || (job == Job.PRODAVETS && near(p, d.loc("market"), 12));
+            if (workTime && atWork) {
+                r.jobCounter++;
+                if (r.jobCounter % 15 == 0) p.displayClientMessage(Component.literal("Смена: до оплаты " + (60 - r.jobCounter % 60) + " сек.").withStyle(ChatFormatting.GRAY), true);
+                if (r.jobCounter % 60 == 0) pay(p, d, r, job.shiftPay, "смена");
             }
         }
     }
@@ -181,7 +166,7 @@ public final class JobManager {
         return p.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) < r * r;
     }
 
-    private static int count(ServerPlayer p, net.minecraft.world.item.Item item) {
+    private static int count(ServerPlayer p, Item item) {
         int c = 0;
         for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
             ItemStack s = p.getInventory().getItem(i);
@@ -190,7 +175,7 @@ public final class JobManager {
         return c;
     }
 
-    private static boolean remove(ServerPlayer p, net.minecraft.world.item.Item item) {
+    private static boolean remove(ServerPlayer p, Item item) {
         for (int i = 0; i < p.getInventory().getContainerSize(); i++) {
             ItemStack s = p.getInventory().getItem(i);
             if (s.getItem() == item) {

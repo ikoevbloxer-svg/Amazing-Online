@@ -13,7 +13,11 @@ public enum Article {
     KOAP_19_3("ст. 19.3 КоАП РФ", "Неповиновение законному требованию сотрудника полиции", true, Faction.UMVD, Severity.ADMIN, 1800, 2000),
     KOAP_20_1("ст. 20.1 КоАП РФ", "Мелкое хулиганство", true, Faction.UMVD, Severity.ADMIN, 1200, 1000),
     KOAP_20_2("ст. 20.2 КоАП РФ", "Нарушение порядка проведения публичного мероприятия", true, Faction.UMVD, Severity.ADMIN, 1800, 10000),
+    KOAP_20_3("ст. 20.3 КоАП РФ", "Пропаганда либо публичное демонстрирование нацистской символики", true, Faction.UMVD, Severity.ADMIN, 1800, 2000),
+    KOAP_20_17("ст. 20.17 КоАП РФ", "Нарушение пропускного режима охраняемого объекта", true, Faction.UMVD, Severity.ADMIN, 1800, 3000),
     KOAP_20_20("ст. 20.20 КоАП РФ", "Потребление алкоголя в общественных местах", true, Faction.UMVD, Severity.ADMIN, 0, 500),
+    KOAP_20_21("ст. 20.21 КоАП РФ", "Появление в общественных местах в состоянии опьянения", true, Faction.UMVD, Severity.ADMIN, 1200, 1000),
+    KOAP_20_25("ст. 20.25 КоАП РФ", "Неуплата административного штрафа в срок", true, Faction.UMVD, Severity.ADMIN, 1800, 2000),
 
     // ---------- УК РФ ----------
     UK_105("ст. 105 УК РФ", "Убийство", false, Faction.SK, Severity.ESPECIALLY_GRAVE, 24000, 0),
@@ -34,8 +38,10 @@ public enum Article {
     UK_282_1("ст. 282.1 УК РФ", "Организация экстремистского сообщества", false, Faction.SK, Severity.GRAVE, 12000, 0),
     UK_290("ст. 290 УК РФ", "Получение взятки", false, Faction.SK, Severity.GRAVE, 12000, 0),
     UK_291("ст. 291 УК РФ", "Дача взятки", false, Faction.SK, Severity.MEDIUM, 6000, 0),
+    UK_313("ст. 313 УК РФ", "Побег из места лишения свободы или из-под стражи", false, Faction.UMVD, Severity.MEDIUM, 6000, 0),
     UK_317("ст. 317 УК РФ", "Посягательство на жизнь сотрудника правоохранительного органа", false, Faction.SK, Severity.ESPECIALLY_GRAVE, 30000, 0),
-    UK_318("ст. 318 УК РФ", "Применение насилия в отношении представителя власти", false, Faction.SK, Severity.MEDIUM, 7200, 0);
+    UK_318("ст. 318 УК РФ", "Применение насилия в отношении представителя власти", false, Faction.SK, Severity.MEDIUM, 7200, 0),
+    UK_319("ст. 319 УК РФ", "Оскорбление представителя власти", false, Faction.SK, Severity.MINOR, 2400, 0);
 
     public enum Severity {
         ADMIN("административное правонарушение", 0),

@@ -12,5 +12,7 @@
   "entity.rusgorod.citizen": "Житель",
   "key.rusgorod.menu": "Меню фракций (РусГород)",
   "key.categories.rusgorod": "РусГород",
-  "itemGroup.rusgorod.main": "РусГород"
+  "itemGroup.rusgorod.main": "РусГород",
+  "item.rusgorod.cuffs": "Наручники БР-С2",
+  "item.rusgorod.diploma": "Диплом юриста"
 }

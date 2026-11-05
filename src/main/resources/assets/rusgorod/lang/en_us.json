@@ -12,5 +12,7 @@
   "entity.rusgorod.citizen": "Citizen",
   "key.rusgorod.menu": "Faction menu (RusGorod)",
   "key.categories.rusgorod": "RusGorod",
-  "itemGroup.rusgorod.main": "RusGorod"
+  "itemGroup.rusgorod.main": "RusGorod",
+  "item.rusgorod.cuffs": "Handcuffs",
+  "item.rusgorod.diploma": "Law Diploma"
 }

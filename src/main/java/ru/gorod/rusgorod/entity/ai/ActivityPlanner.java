@@ -45,21 +45,37 @@ public final class ActivityPlanner {
         Faction f = c.getFaction();
         switch (f) {
             case CIVILIAN -> {
-                if (night) return new Activity(HOME, c.home, 2400).speed(0.7);
-                if (workHours && c.profession != Profession.UNEMPLOYED) {
+                if (night) {
+                    c.drunk = c.drunk && r.nextInt(3) > 0;
+                    return new Activity(HOME, c.home, 2400).speed(0.7);
+                }
+                if (t < 1000) c.drunk = false;
+                if (workHours && c.profession != Profession.UNEMPLOYED && c.profession != Profession.PENSIONER) {
                     // мелкие правонарушения от склонных к ним
                     if (c.criminality > 0.65f && r.nextFloat() < 0.05f)
                         return new Activity(STEAL, around(d.loc(r.nextBoolean() ? "shop" : "market"), r, 2), 60);
                     return new Activity(WORK, around(c.work, r, 3), 1200 + r.nextInt(800));
                 }
+                // вечер: рюмочная
+                if (t > 10500 && (c.criminality > 0.35f || c.mood < 35) && r.nextFloat() < 0.35f)
+                    return new Activity(DRINK, around(d.loc("bar"), r, 3), 900);
                 if (c.criminality > 0.5f && r.nextFloat() < 0.07f)
                     return new Activity(DRINK, around(d.loc("park"), r, 6), 600);
-                int roll = r.nextInt(10);
+                int roll = r.nextInt(14);
                 if (roll < 3) return new Activity(LEISURE, around(d.loc("park"), r, 7), 600);
                 if (roll < 5) return new Activity(LEISURE, around(d.loc("shop"), r, 3), 300);
                 if (roll < 6) return new Activity(PRAY, around(d.loc("church"), r, 3), 600);
-                if (roll < 8) return new Activity(LEISURE, around(d.randomNode(r), r, 2), 200);
+                if (roll < 7) return new Activity(LEISURE, around(d.loc("dk"), r, 4), 800);
+                if (roll < 8) return new Activity(LEISURE, around(d.loc(c.profession == Profession.PENSIONER ? "hospital" : "bank"), r, 3), 400);
+                if (roll < 9) return new Activity(LEISURE, around(d.loc("mfc"), r, 3), 400);
+                if (roll < 10) return new Activity(LEISURE, around(d.loc("market"), r, 5), 500);
+                if (roll < 12) return new Activity(LEISURE, around(d.randomNode(r), r, 2), 200);
                 return new Activity(HOME, c.home, 1200);
+            }
+            case COURT -> {
+                if (night) return new Activity(HOME, c.home, 2400);
+                if (t > 1000 && t < 9000 && r.nextInt(3) == 0) return new Activity(HEARING, around(d.loc("court"), r, 2), 900);
+                return new Activity(WORK, around(d.loc("court"), r, 3), 1200);
             }
             case UMVD -> {
                 if (!c.isOnDuty()) return new Activity(HOME, c.home, 2400);
@@ -221,7 +237,16 @@ public final class ActivityPlanner {
                     CrimeSystem.commitByNpc(level, c, Article.UK_158, null);
                 }
             }
-            case DRINK -> CrimeSystem.commitByNpc(level, c, Article.KOAP_20_20, null);
+            case DRINK -> {
+                c.drunk = true;
+                if (d.loc("bar").distManhattan(c.blockPosition()) > 12) CrimeSystem.commitByNpc(level, c, Article.KOAP_20_20, null);
+                else if (r.nextInt(3) == 0) c.say(r.nextBoolean() ? "Ну, будем!" : "Наливай, Михалыч.");
+            }
+            case HEARING -> {
+                String[] lines = {"Встать, суд идёт! Прошу садиться.", "Суд удаляется в совещательную комнату.",
+                        "Ходатайство стороны защиты удовлетворить.", "Мера пресечения оставлена без изменения."};
+                c.say(lines[r.nextInt(lines.length)]);
+            }
             case DEAL -> {
                 d.addFunds(c.getFaction(), 6000);
                 CrimeSystem.commitByNpc(level, c, Article.UK_228_1, null);

@@ -9,6 +9,7 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import ru.gorod.rusgorod.RusGorod;
+import ru.gorod.rusgorod.item.CuffsItem;
 import ru.gorod.rusgorod.item.GunItem;
 import ru.gorod.rusgorod.item.IdCardItem;
 
@@ -31,6 +32,10 @@ public class ModItems {
 
     public static final RegistryObject<Item> ID_CARD = ITEMS.register("id_card",
             () -> new IdCardItem(new Item.Properties().stacksTo(1)));
+    /** Наручники БР-С2. */
+    public static final RegistryObject<Item> CUFFS = ITEMS.register("cuffs", () -> new CuffsItem(new Item.Properties().stacksTo(1)));
+    /** Диплом бакалавра юриспруденции. */
+    public static final RegistryObject<Item> DIPLOMA = ITEMS.register("diploma", () -> new Item(new Item.Properties().stacksTo(1)));
     public static final RegistryObject<Item> LETTER = ITEMS.register("letter", () -> new Item(new Item.Properties().stacksTo(16)));
     public static final RegistryObject<Item> CARGO_BOX = ITEMS.register("cargo_box", () -> new Item(new Item.Properties().stacksTo(4)));
 

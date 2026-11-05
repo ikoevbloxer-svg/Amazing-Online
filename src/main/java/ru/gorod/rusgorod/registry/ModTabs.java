@@ -17,6 +17,8 @@ public class ModTabs {
             .displayItems((params, out) -> {
                 out.accept(ModItems.ID_CARD.get());
                 out.accept(ModItems.BATON.get());
+                out.accept(ModItems.CUFFS.get());
+                out.accept(ModItems.DIPLOMA.get());
                 out.accept(ModItems.PM.get());
                 out.accept(ModItems.AK74.get());
                 out.accept(ModItems.AMMO_9MM.get());

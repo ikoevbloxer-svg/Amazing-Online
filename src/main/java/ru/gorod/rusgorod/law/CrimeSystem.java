@@ -226,6 +226,8 @@ public final class CrimeSystem {
         if (victim.getTarget() == p) return true; // необходимая оборона
         PlayerRecord r = GorodData.get(level).player(p.getUUID());
         if (r.faction.isState() && victim.isWanted()) return true;
+        // Причинение вреда при задержании лица, совершившего преступление (ст. 38 УК РФ) — для любого гражданина
+        for (Article a : victim.wanted) if (!a.administrative) return true;
         if (r.faction.isState() && victim.getTarget() != null && victim.getTarget() != victim && victim.getFaction().isCriminal()) return true;
         return false;
     }
@@ -333,11 +335,7 @@ public final class CrimeSystem {
         c.teleportTo(exit.getX() + 0.5, exit.getY(), exit.getZ() + 0.5);
         if (c.everConvicted && c.getFaction().isState()) {
             // Увольнение со службы в связи с осуждением (п. 7 ч. 3 ст. 82 ФЗ № 342-ФЗ)
-            c.setFaction(Faction.CIVILIAN);
-            c.rank = 0;
-            c.equip();
-            c.refreshName();
-            d.npcs.put(c.getUUID(), Faction.CIVILIAN);
+            c.changeFaction(Faction.CIVILIAN, 0, d);
         }
         if (c.getFaction() == Faction.CIVILIAN && c.everConvicted) c.criminality = Math.min(1f, c.criminality + 0.15f);
     }
@@ -369,17 +367,26 @@ public final class CrimeSystem {
 
         p.sendSystemMessage(Component.literal("══ Вы задержаны ══").withStyle(ChatFormatting.RED));
         p.sendSystemMessage(Component.literal("Основание: " + arts + ". Права: ст. 46 УПК РФ — знать, в чём подозреваетесь; пользоваться помощью защитника; не свидетельствовать против себя (ст. 51 Конституции РФ).").withStyle(ChatFormatting.GRAY));
-        if (!criminal && r.balance >= fines && fines > 0) {
-            r.balance -= fines;
-            d.budget += fines;
+        boolean arrestable = false;
+        for (Article a : r.wanted) if (a.administrative && a.sentenceTicks >= 1500) arrestable = true;
+        if (!criminal && !arrestable) {
+            // Протокол → постановление → штраф к оплате в 60 дней (ст. 32.2 КоАП); у нас — 3 игровых суток
+            r.fineDebt += fines;
+            if (r.fineDueDay < 0) r.fineDueDay = day + 3;
             r.wanted.clear();
-            p.sendSystemMessage(Component.literal("Вынесено постановление по делу об административном правонарушении. Штраф " + fines + " ₽ оплачен.").withStyle(ChatFormatting.YELLOW));
+            p.sendSystemMessage(Component.literal("Составлен протокол, вынесено постановление. Штраф " + fines + " ₽ — оплатить до " + (r.fineDueDay)
+                    + "-х суток (G → «Город» → «Оплатить штрафы» / ПКМ по сотруднику банка или МФЦ). Неуплата — ст. 20.25 КоАП РФ.").withStyle(ChatFormatting.YELLOW));
+            if (officer instanceof CitizenEntity oc) oc.say("Протокол составлен. Штраф оплатите в срок, иначе — двойной или арест.");
             Network.syncPlayer(p);
             return;
         }
+        if (!criminal && fines > 0) {
+            r.fineDebt += fines;
+            if (r.fineDueDay < 0) r.fineDueDay = day + 3;
+        }
         List<BlockPos> cells = criminal ? d.sizoCells : d.ivsCells;
         BlockPos cell = cells.isEmpty() ? d.loc("sizo") : cells.get(level.random.nextInt(cells.size()));
-        r.jailUntil = level.getGameTime() + Math.max(600, sentence);
+        r.jailUntil = level.getGameTime() + Math.max(600, sentence) + (criminal ? 700 : 0);
         r.jailType = criminal ? 2 : 1;
         r.clearQuest();
         if (criminal) {
@@ -391,12 +398,21 @@ public final class CrimeSystem {
                 r.faction = Faction.CIVILIAN;
                 r.rank = 0;
                 r.points = 0;
+                r.uniform = false;
+                p.refreshDisplayName();
+                Network.broadcastRanks(level.getServer());
             } else if (r.faction.isCriminal()) {
                 r.crimRep += 5; // «ходка» повышает авторитет
             }
         }
         markArrested(d, p.getUUID());
         r.wanted.clear();
+        r.cuffed = false;
+        if (criminal) {
+            r.trialAt = level.getGameTime() + 600;
+            r.trialArticles = arts.toString();
+            p.sendSystemMessage(Component.literal("Через 30 секунд — судебное заседание. В последнем слове можете раскаяться (напишите в чат «раскаиваюсь») — это смягчит приговор (ч. 2 ст. 61 УК РФ).").withStyle(ChatFormatting.GOLD));
+        }
         p.teleportTo(level, cell.getX() + 0.5, cell.getY(), cell.getZ() + 0.5, p.getYRot(), p.getXRot());
         p.sendSystemMessage(Component.literal((criminal ? "Мера пресечения — заключение под стражу. СИЗО-1. " : "Административный арест (ст. 3.9 КоАП РФ). ИВС. ")
                 + "Срок: " + (r.jailUntil - level.getGameTime()) / 20 + " сек.").withStyle(ChatFormatting.RED));

@@ -3,6 +3,7 @@ package ru.gorod.rusgorod.entity.ai;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.ai.goal.Goal;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.phys.Vec3;
 import ru.gorod.rusgorod.data.GorodData;
@@ -53,6 +54,15 @@ public class CitizenBrainGoal extends Goal {
         if (!(c.level() instanceof ServerLevel level)) return;
         GorodData d = GorodData.get(level);
         if (!d.generated) return;
+        if (c.isTalking(level)) {
+            c.getNavigation().stop();
+            return;
+        }
+        if (c.order != CitizenEntity.Order.NONE) {
+            current = null;
+            handleOrder(level);
+            return;
+        }
         if (cooldown > 0) {
             cooldown--;
             return;
@@ -125,6 +135,42 @@ public class CitizenBrainGoal extends Goal {
         }
         if (a.duration <= 0) {
             finish(level, d);
+        }
+    }
+
+    /** Выполнение приказа командира: следовать за ним или охранять точку. */
+    private void handleOrder(ServerLevel level) {
+        Player cmd = c.commander == null ? null : level.getPlayerByUUID(c.commander);
+        if (cmd == null || !cmd.isAlive() || cmd.level() != c.level()) {
+            c.order = CitizenEntity.Order.NONE;
+            c.commander = null;
+            return;
+        }
+        if (c.order == CitizenEntity.Order.FOLLOW) {
+            double dist = c.distanceTo(cmd);
+            if (dist > 48) {
+                c.teleportTo(cmd.getX() - cmd.getLookAngle().x * 2, cmd.getY(), cmd.getZ() - cmd.getLookAngle().z * 2);
+                c.getNavigation().stop();
+            } else if (dist > 3.5) {
+                if (--repath <= 0) {
+                    repath = 10;
+                    c.getNavigation().moveTo(cmd, dist > 10 ? 1.2 : 0.9);
+                }
+            } else {
+                c.getNavigation().stop();
+                c.getLookControl().setLookAt(cmd);
+            }
+        } else if (c.order == CitizenEntity.Order.HOLD) {
+            BlockPos h = c.holdPos;
+            double dist = Math.sqrt(c.distanceToSqr(h.getX() + 0.5, h.getY(), h.getZ() + 0.5));
+            if (dist > 2.0) {
+                if (--repath <= 0) {
+                    repath = 20;
+                    c.getNavigation().moveTo(h.getX() + 0.5, h.getY(), h.getZ() + 0.5, 0.8);
+                }
+            } else {
+                c.getNavigation().stop();
+            }
         }
     }
 

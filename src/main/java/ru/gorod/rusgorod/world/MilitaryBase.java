@@ -47,8 +47,10 @@ public final class MilitaryBase {
         Buildings.Info hq = Buildings.office(b, bx + 6, bz + 3, 18, 10, 2, gy, Blocks.WHITE_CONCRETE, Blocks.GREEN_CONCRETE,
                 Blocks.POLISHED_ANDESITE, Blocks.GREEN_CONCRETE, Blocks.SPRUCE_DOOR,
                 new String[]{"ШТАБ"}, new String[]{"в/ч 12345"}, new String[]{"Дежурный", "по части"});
-        Buildings.deskRow(b, bx + 8, bx + 21, gy + 1, bz + 6);
-        b.fill(bx + 8, gy + 5, bz + 5, bx + 20, gy + 5, bz + 5, Blocks.BOOKSHELF);
+        b.deskRow(bx + 17, bx + 21, gy + 1, bz + 6);
+        b.deskRow(bx + 14, bx + 21, gy + 5, bz + 7);
+        b.fill(bx + 14, gy + 5, bz + 4, bx + 22, gy + 5, bz + 4, Blocks.BOOKSHELF);
+        b.sign(bx + 18, gy + 6, bz + 5, Direction.SOUTH, "Кабинет", "командира", "части");
         b.russianFlag(bx + 14, gy + 1, bz + 15, 9);
         b.fill(bx + 12, gy, bz + 14, bx + 16, gy, bz + 16, Blocks.STONE_BRICKS);
         d.locs.put("army_hq", hq.inside());
@@ -80,12 +82,12 @@ public final class MilitaryBase {
                     new String[]{"КАЗАРМА"}, new String[]{"Рота №" + (k + 1)});
             for (int f = 0; f < 2; f++) {
                 int y = gy + 1 + 4 * f;
-                for (int x = x0 + 3; x <= x0 + 17; x += 2) {
+                for (int x = x0 + 8; x <= x0 + 18; x += 2) {
                     b.bed(x, y, z0 + 2, Direction.NORTH, Blocks.GREEN_BED);
                     b.set(x, y, z0 + 4, Blocks.BARREL);
                 }
-                d.barracks.add(new BlockPos(x0 + 6, y, z0 + 5));
-                d.barracks.add(new BlockPos(x0 + 12, y, z0 + 5));
+                d.barracks.add(new BlockPos(x0 + 9, y, z0 + 6));
+                d.barracks.add(new BlockPos(x0 + 14, y, z0 + 6));
             }
             d.barracks.add(info.inside());
         }

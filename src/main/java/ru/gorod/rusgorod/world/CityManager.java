@@ -11,9 +11,11 @@ import ru.gorod.rusgorod.Config;
 import ru.gorod.rusgorod.data.GorodData;
 import ru.gorod.rusgorod.data.PlayerRecord;
 import ru.gorod.rusgorod.entity.CitizenEntity;
+import ru.gorod.rusgorod.entity.Profession;
 import ru.gorod.rusgorod.entity.ai.ActivityPlanner;
 import ru.gorod.rusgorod.faction.Faction;
 import ru.gorod.rusgorod.faction.FactionService;
+import ru.gorod.rusgorod.law.Article;
 import ru.gorod.rusgorod.law.CrimeSystem;
 import ru.gorod.rusgorod.net.Network;
 import ru.gorod.rusgorod.registry.ModBlocks;
@@ -21,6 +23,7 @@ import ru.gorod.rusgorod.registry.ModEntities;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /** Жизнь города: сутки, бюджет, зарплаты, настроение, митинги, пополнение фракций, мусор. */
 public final class CityManager {
@@ -51,6 +54,7 @@ public final class CityManager {
         if (gt % 200 == 0) {
             for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) Network.syncPlayer(p);
         }
+        if (gt % 600 == 300) Network.broadcastRanks(level.getServer());
     }
 
     public static void changeSatisfaction(GorodData d, double delta) {
@@ -66,23 +70,26 @@ public final class CityManager {
         taxes = Math.round(taxes * (0.5 + d.satisfaction / 200.0));
         d.budget += taxes;
         int stateNpc = 0;
-        for (Faction f : Faction.values()) if (f.isState()) stateNpc += d.npcCount(f);
-        d.budget -= stateNpc * 1200L;
+        for (Faction f : Faction.values()) if (f == Faction.GOV) stateNpc += d.npcCount(f);
+        d.budget -= stateNpc * 1500L; // муниципальные служащие — из местного бюджета; остальные — федеральный
 
-        // Денежное довольствие игрокам-сотрудникам и доля из общака
-        for (Map.Entry<java.util.UUID, PlayerRecord> e : d.players.entrySet()) {
+        for (Map.Entry<UUID, PlayerRecord> e : d.players.entrySet()) {
             PlayerRecord r = e.getValue();
             ServerPlayer p = level.getServer().getPlayerList().getPlayer(e.getKey());
+            // Денежное довольствие и доля из общака
             if (r.faction.isState()) {
                 long pay = FactionService.dailyIncome(r);
-                if (d.budget > 0) {
+                boolean municipal = r.faction == Faction.GOV;
+                if (!municipal || d.budget > 0) {
                     r.balance += pay;
-                    d.budget -= pay;
+                    if (municipal) d.budget -= pay;
                     r.points += 2; // выслуга
-                    if (p != null) p.sendSystemMessage(Component.literal("Начислено денежное довольствие: " + pay + " ₽").withStyle(ChatFormatting.GREEN));
+                    if (p != null) p.sendSystemMessage(Component.literal("Начислено денежное довольствие: " + pay + " ₽ ("
+                            + (municipal ? "местный бюджет" : "федеральный бюджет") + ")").withStyle(ChatFormatting.GREEN));
                 } else if (p != null) {
-                    p.sendSystemMessage(Component.literal("Задержка выплаты: в бюджете нет средств (ст. 236 ТК РФ — компенсация за задержку).").withStyle(ChatFormatting.RED));
+                    p.sendSystemMessage(Component.literal("Задержка зарплаты: в местном бюджете нет средств (ст. 236 ТК РФ — компенсация за задержку).").withStyle(ChatFormatting.RED));
                 }
+                if (r.faction.isLegalProfession()) r.legalExpDays++;
             } else if (r.faction.isCriminal()) {
                 long funds = d.fundsOf(r.faction);
                 long share = Math.min(funds, Math.round(funds * 0.04 * (r.rank + 1)));
@@ -91,6 +98,12 @@ public final class CityManager {
                     d.addFunds(r.faction, -share);
                     if (p != null) p.sendSystemMessage(Component.literal("Твоя доля: " + share + " ₽").withStyle(ChatFormatting.GOLD));
                 }
+            }
+            // Неуплата штрафа в срок — ст. 20.25 КоАП
+            if (r.fineDebt > 0 && r.fineDueDay >= 0 && day > r.fineDueDay && !r.wanted.contains(Article.KOAP_20_25)) {
+                r.wanted.add(Article.KOAP_20_25);
+                r.fineDebt *= 2;
+                if (p != null) p.sendSystemMessage(Component.literal("Штраф не оплачен в срок: сумма удвоена (" + r.fineDebt + " ₽), вы в розыске по ст. 20.25 КоАП РФ. Оплатите и сдайтесь.").withStyle(ChatFormatting.RED));
             }
         }
 
@@ -114,13 +127,11 @@ public final class CityManager {
         d.rallyNotified = level.random.nextDouble() < 0.6;
         d.rallyUntil = level.getGameTime() + 8000;
         BlockPos sq = d.loc("square");
-        List<CitizenEntity> civs = level.getEntitiesOfClass(CitizenEntity.class, new AABB(sq).inflate(160),
+        List<CitizenEntity> civs = level.getEntitiesOfClass(CitizenEntity.class, new AABB(sq).inflate(200),
                 c -> c.getFaction() == Faction.CIVILIAN && !c.isJailed());
+        civs.sort((a, b) -> Integer.compare(a.mood, b.mood)); // первыми выходят самые недовольные
         int n = Math.min(civs.size(), 6 + level.random.nextInt(9));
-        for (int i = 0; i < n; i++) {
-            CitizenEntity c = civs.get(level.random.nextInt(civs.size()));
-            c.protestUntil = d.rallyUntil;
-        }
+        for (int i = 0; i < n; i++) civs.get(i).protestUntil = d.rallyUntil;
         String news = d.rallyNotified
                 ? "У здания администрации проходит митинг (уведомление подано в порядке ст. 7 ФЗ № 54-ФЗ). Полиция обеспечивает порядок."
                 : "У здания администрации — несогласованная акция! Полиция требует разойтись (ст. 20.2 КоАП РФ).";
@@ -148,6 +159,7 @@ public final class CityManager {
         return e;
     }
 
+    /** Пирамида званий: чем выше звание, тем меньше людей. */
     private static int randomRank(Faction f, RandomSource r) {
         int max = f.rankCount() - 1;
         if (max <= 0) return 0;
@@ -166,11 +178,17 @@ public final class CityManager {
         for (Faction f : Faction.values()) {
             int n = target(f);
             for (int i = 0; i < n; i++) {
-                // Руководитель (высшая должность) — один, остальные — пирамида званий
-                int rank = (i == 0 && f != Faction.CIVILIAN) ? f.rankCount() - 1 : randomRank(f, r);
+                // Руководитель — один, заместитель — один, остальные — пирамида званий
+                int rank;
+                if (f == Faction.CIVILIAN) rank = 0;
+                else if (i == 0) rank = f == Faction.UMVD || f == Faction.UFSIN || f == Faction.UGIBDD || f == Faction.UFSB || f == Faction.SK || f == Faction.ARMY || f == Faction.PROK || f == Faction.COURT
+                        ? f.topRank() - 1 : f.topRank(); // генеральские должности — в области, в городе — полковник
+                else if (i == 1 && n > 3) rank = Math.max(0, f.topRank() - 2);
+                else rank = randomRank(f, r);
                 BlockPos pos = spawnPos(d, f, r);
                 level.getChunk(pos.getX() >> 4, pos.getZ() >> 4);
-                spawnNpc(level, d, f, rank, pos);
+                CitizenEntity c = spawnNpc(level, d, f, rank, pos);
+                if (c != null && f == Faction.CIVILIAN && i < Profession.KEY.length) c.setProfession(Profession.KEY[i], d);
             }
         }
     }
@@ -182,18 +200,12 @@ public final class CityManager {
             int target = target(f);
             int cur = d.npcCount(f);
             if (cur >= target) continue;
-            if (f != Faction.CIVILIAN && f != Faction.ARMY && r.nextBoolean()) {
-                CitizenEntity cand = ActivityPlanner.findNear(level, d.loc("square"), 120, c -> c.getFaction() == Faction.CIVILIAN
-                        && !c.isJailed() && !c.isWanted() && !c.isProtesting()
-                        && (f.isState() ? (!c.everConvicted && c.criminality < 0.3f) : (c.everConvicted || c.criminality > 0.55f)));
+            if (f != Faction.CIVILIAN && f != Faction.ARMY && f != Faction.COURT && r.nextBoolean()) {
+                CitizenEntity cand = ActivityPlanner.findNear(level, d.loc("square"), 150, c -> c.getFaction() == Faction.CIVILIAN
+                        && !c.isJailed() && !c.isWanted() && !c.isProtesting() && c.profession != Profession.PROFESSOR && c.profession != Profession.DOCTOR
+                        && (f.isState() ? (!c.everConvicted && c.criminality < 0.3f) : (c.everConvicted || c.criminality > 0.55f || c.mood < 20)));
                 if (cand != null) {
-                    cand.setFaction(f);
-                    cand.rank = 0;
-                    cand.work = d.loc(f.hqKey);
-                    if (f.isCriminal()) cand.nickname = ru.gorod.rusgorod.entity.NameGen.nickname(r);
-                    cand.equip();
-                    cand.refreshName();
-                    d.npcs.put(cand.getUUID(), f);
+                    cand.changeFaction(f, 0, d);
                     d.addNews(f.isState() ? "Кадры: житель " + cand.fullName() + " поступил на службу — " + f.title + "."
                             : "Слухи: " + cand.fullName() + " связался с «" + f.title + "».");
                     continue;
@@ -208,7 +220,7 @@ public final class CityManager {
 
     private static void litter(ServerLevel level, GorodData d) {
         if (d.roadSpots.isEmpty()) return;
-        for (int i = 0; i < 3; i++) {
+        for (int i = 0; i < 4; i++) {
             BlockPos p = d.roadSpots.get(level.random.nextInt(d.roadSpots.size()));
             if (level.isLoaded(p) && level.getBlockState(p).isAir() && level.random.nextFloat() < 0.6f) {
                 level.setBlock(p, ModBlocks.LITTER.get().defaultBlockState(), 3);

@@ -41,6 +41,8 @@ import ru.gorod.rusgorod.Config;
 import ru.gorod.rusgorod.data.GorodData;
 import ru.gorod.rusgorod.entity.ai.CitizenBrainGoal;
 import ru.gorod.rusgorod.entity.ai.CitizenCombatGoal;
+import ru.gorod.rusgorod.entity.ai.Encounters;
+import ru.gorod.rusgorod.entity.ai.RankReactions;
 import ru.gorod.rusgorod.faction.Faction;
 import ru.gorod.rusgorod.law.Article;
 import ru.gorod.rusgorod.law.CrimeSystem;
@@ -48,13 +50,22 @@ import ru.gorod.rusgorod.net.DialogService;
 import ru.gorod.rusgorod.registry.ModItems;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
-/** Житель города / сотрудник / член ОПГ. Поведение определяется фракцией, званием и профессией. */
+/** Житель города / сотрудник / член ОПГ. Поведение определяется фракцией, званием, должностью и профессией. */
 public class CitizenEntity extends PathfinderMob {
     private static final EntityDataAccessor<Integer> FACTION = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.INT);
     private static final EntityDataAccessor<Integer> VARIANT = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> RANK = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> PROF = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.INT);
+    private static final EntityDataAccessor<Integer> ANIM = SynchedEntityData.defineId(CitizenEntity.class, EntityDataSerializers.INT);
+
+    public static final int ANIM_NONE = 0, ANIM_SALUTE = 1, ANIM_HANDS_UP = 2, ANIM_PROTEST = 3, ANIM_TALK = 4, ANIM_CUFFED = 5, ANIM_POINT = 6;
+
+    public enum Order {NONE, FOLLOW, HOLD}
 
     public String firstName = "Иван";
     public String lastName = "Иванов";
@@ -67,13 +78,31 @@ public class CitizenEntity extends PathfinderMob {
     public BlockPos work = BlockPos.ZERO;
     /** Склонность к правонарушениям 0..1. */
     public float criminality;
+    /** Настроение 0..100: влияет на митинги, пьянство, вежливость. */
+    public int mood = 60;
     public boolean nightShift;
     public boolean everConvicted;
     public boolean informant;
+    public boolean drunk;
     public final List<Article> wanted = new ArrayList<>();
     public long jailUntil = -1;
     public long protestUntil = -1;
+
+    // ---- приказы
+    public Order order = Order.NONE;
+    public UUID commander;
+    public BlockPos holdPos = BlockPos.ZERO;
+    public long orderUntil;
+
+    // ---- служебное
+    public int encounterCooldown = 200;
+    /** До какого момента NPC стоит и разговаривает (сценка с другим NPC). */
+    public long talkUntil;
+    /** Награда за задержание (городское событие): ослабленный ударами игрока — сдаётся. */
+    public int bounty;
+    public final Map<UUID, Long> greeted = new HashMap<>();
     private int speechCooldown;
+    private int animTicks;
     private boolean initialized;
 
     public CitizenEntity(EntityType<? extends PathfinderMob> type, Level level) {
@@ -98,6 +127,9 @@ public class CitizenEntity extends PathfinderMob {
         super.defineSynchedData();
         this.entityData.define(FACTION, 0);
         this.entityData.define(VARIANT, 0);
+        this.entityData.define(RANK, 0);
+        this.entityData.define(PROF, Profession.UNEMPLOYED.ordinal());
+        this.entityData.define(ANIM, ANIM_NONE);
     }
 
     @Override
@@ -114,23 +146,26 @@ public class CitizenEntity extends PathfinderMob {
                 e -> this.getFaction().canArrest() && !this.isJailed() && CrimeSystem.isWanted(e)));
         // Конфликты между группировками
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, CitizenEntity.class, 400, true, false,
-                e -> e instanceof CitizenEntity c && !this.isJailed() && !c.isJailed() && this.getFaction().isHostileTo(c.getFaction())));
+                e -> e instanceof CitizenEntity c && !this.isJailed() && !c.isJailed() && this.order == Order.NONE
+                        && this.getFaction().isHostileTo(c.getFaction())));
     }
 
     // ---------------------------------------------------------------- инициализация
 
     public void setup(Faction faction, int rank, RandomSource random, GorodData data) {
         this.setFaction(faction);
-        this.rank = rank;
-        this.female = faction == Faction.CIVILIAN ? random.nextInt(100) < 45 : (faction == Faction.GOV || faction == Faction.PROK || faction == Faction.SK) && random.nextInt(100) < 35;
+        this.rank = Math.min(rank, faction.topRank());
+        this.female = faction == Faction.CIVILIAN ? random.nextInt(100) < 45
+                : (faction == Faction.GOV || faction == Faction.PROK || faction == Faction.SK || faction == Faction.COURT) && random.nextInt(100) < 40;
         String[] n = NameGen.generate(random, female, faction == Faction.KAVKAZ_MAFIA);
         firstName = n[0];
         lastName = n[1];
         patronymic = n[2];
         if (faction.isCriminal()) nickname = NameGen.nickname(random);
-        int variant = faction == Faction.CIVILIAN ? (female ? 4 + random.nextInt(2) : random.nextInt(4)) : random.nextInt(4);
+        int variant = faction == Faction.CIVILIAN ? (female ? 4 + random.nextInt(4) : random.nextInt(4)) : random.nextInt(4);
         this.entityData.set(VARIANT, variant);
         this.nightShift = random.nextBoolean();
+        this.mood = 40 + random.nextInt(50);
         this.criminality = switch (faction.type) {
             case CRIMINAL -> 0.7f + random.nextFloat() * 0.3f;
             case STATE -> random.nextFloat() * 0.12f;
@@ -138,19 +173,51 @@ public class CitizenEntity extends PathfinderMob {
         };
         if (faction == Faction.CIVILIAN) {
             Profession[] ps = Profession.values();
-            profession = ps[random.nextInt(ps.length)];
-            if (profession == Profession.TRADER && random.nextBoolean()) profession = Profession.SHOPKEEPER;
+            Profession p = ps[random.nextInt(ps.length)];
+            if (p == Profession.PROFESSOR || p == Profession.PRIEST || p == Profession.DOCTOR) p = Profession.UNEMPLOYED;
+            setProfession(p, data);
+        } else {
+            work = data.loc(faction.hqKey);
         }
         if (faction == Faction.ARMY && !data.barracks.isEmpty()) {
             home = data.barracks.get(random.nextInt(data.barracks.size()));
         } else {
             home = data.randomHome(random);
         }
-        work = faction == Faction.CIVILIAN ? data.loc(profession.workKey) : data.loc(faction.hqKey);
         applyStats();
         equip();
         refreshName();
+        syncData();
         initialized = true;
+    }
+
+    public void setProfession(Profession p, GorodData data) {
+        this.profession = p;
+        this.work = data.loc(p.workKey);
+        this.entityData.set(PROF, p.ordinal());
+        if (p == Profession.PRIEST || p == Profession.PROFESSOR || p == Profession.DOCTOR) this.criminality = 0.02f;
+    }
+
+    /** Смена фракции (вербовка, поступление на службу, увольнение). */
+    public void changeFaction(Faction f, int newRank, GorodData data) {
+        setFaction(f);
+        rank = Math.min(newRank, f.topRank());
+        if (f.isCriminal() && nickname.isEmpty()) nickname = NameGen.nickname(getRandom());
+        if (f == Faction.CIVILIAN) {
+            setProfession(Profession.UNEMPLOYED, data);
+        } else {
+            work = data.loc(f.hqKey);
+            entityData.set(PROF, Profession.UNEMPLOYED.ordinal());
+            profession = Profession.UNEMPLOYED;
+        }
+        order = Order.NONE;
+        commander = null;
+        applyStats();
+        equip();
+        refreshName();
+        syncData();
+        data.npcs.put(getUUID(), f);
+        data.setDirty();
     }
 
     private void applyStats() {
@@ -176,11 +243,12 @@ public class CitizenEntity extends PathfinderMob {
         Faction f = getFaction();
         switch (f) {
             case UMVD -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 7 ? ModItems.PM.get() : ModItems.BATON.get()));
-            case UGIBDD, UFSIN -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BATON.get()));
+            case UGIBDD -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BATON.get()));
+            case UFSIN -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.BATON.get()));
             case UFSB -> setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.PM.get()));
             case ARMY -> {
-                setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.AK74.get()));
-                setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
+                setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(rank >= 8 ? ModItems.PM.get() : ModItems.AK74.get()));
+                if (rank < 8) setItemSlot(EquipmentSlot.HEAD, new ItemStack(Items.IRON_HELMET));
             }
             case RUS_MAFIA, KAVKAZ_MAFIA -> {
                 if (rank >= 1) setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(ModItems.PM.get()));
@@ -195,6 +263,11 @@ public class CitizenEntity extends PathfinderMob {
     public void refreshName() {
         setCustomName(Component.literal(displayTitle()));
         setCustomNameVisible(false);
+    }
+
+    public void syncData() {
+        if (entityData.get(RANK) != rank) entityData.set(RANK, rank);
+        if (entityData.get(PROF) != profession.ordinal()) entityData.set(PROF, profession.ordinal());
     }
 
     public String initials() {
@@ -216,6 +289,21 @@ public class CitizenEntity extends PathfinderMob {
         return lastName + " " + firstName + (patronymic.isEmpty() ? "" : " " + patronymic);
     }
 
+    /** Имя-отчество для вежливого обращения. */
+    public String politeName() {
+        return patronymic.isEmpty() ? firstName : firstName + " " + patronymic;
+    }
+
+    /** Представление по ст. 5 ФЗ «О полиции»: должность, звание, фамилия. */
+    public String introduce() {
+        Faction f = getFaction();
+        return switch (f.type) {
+            case STATE -> f.positionName(rank) + ", " + f.rankName(rank).toLowerCase() + " " + lastName + ".";
+            case CRIMINAL -> "«" + nickname + "». Остальное тебе знать не надо.";
+            default -> firstName + " " + lastName + ", " + profession.title + ".";
+        };
+    }
+
     // ---------------------------------------------------------------- состояние
 
     public Faction getFaction() {
@@ -228,6 +316,33 @@ public class CitizenEntity extends PathfinderMob {
 
     public int getVariant() {
         return this.entityData.get(VARIANT);
+    }
+
+    /** Звание, синхронизированное с клиентом (для погон). */
+    public int getSyncedRank() {
+        return this.entityData.get(RANK);
+    }
+
+    public Profession getSyncedProfession() {
+        return Profession.byOrdinal(this.entityData.get(PROF));
+    }
+
+    public int getAnim() {
+        return this.entityData.get(ANIM);
+    }
+
+    public void setAnim(int anim, int ticks) {
+        this.entityData.set(ANIM, anim);
+        this.animTicks = ticks;
+    }
+
+    public String skinKey() {
+        Faction f = getFaction();
+        if (f == Faction.CIVILIAN) {
+            Profession p = getSyncedProfession();
+            if (p.skin != null) return p.skin;
+        }
+        return f.texture(getVariant());
     }
 
     public boolean isWanted() {
@@ -249,7 +364,16 @@ public class CitizenEntity extends PathfinderMob {
     }
 
     public boolean isCombatant() {
-        return getFaction() != Faction.CIVILIAN && getFaction() != Faction.GOV && getFaction() != Faction.PROK;
+        Faction f = getFaction();
+        return f != Faction.CIVILIAN && f != Faction.GOV && f != Faction.PROK && f != Faction.COURT;
+    }
+
+    public boolean isTalking(Level lvl) {
+        return talkUntil > lvl.getGameTime();
+    }
+
+    public boolean isBusy() {
+        return getTarget() != null || isJailed() || order != Order.NONE;
     }
 
     public void addWanted(Article a) {
@@ -259,8 +383,15 @@ public class CitizenEntity extends PathfinderMob {
     // ---------------------------------------------------------------- речь
 
     public void say(String text) {
-        if (level().isClientSide || !Config.NPC_SPEECH.get() || speechCooldown > 0) return;
+        say(text, false);
+    }
+
+    /** force — игнорировать паузу между репликами (для диалогов). */
+    public void say(String text, boolean force) {
+        if (level().isClientSide || !Config.NPC_SPEECH.get() || !isAlive()) return;
+        if (!force && speechCooldown > 0) return;
         speechCooldown = 60;
+        if (getAnim() == ANIM_NONE) setAnim(ANIM_TALK, 30);
         ChatFormatting color = switch (getFaction().type) {
             case STATE -> ChatFormatting.AQUA;
             case CRIMINAL -> ChatFormatting.RED;
@@ -268,7 +399,7 @@ public class CitizenEntity extends PathfinderMob {
         };
         MutableComponent msg = Component.literal("[" + displayTitle() + "] ").withStyle(color)
                 .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
-        for (Player p : level().getEntitiesOfClass(Player.class, getBoundingBox().inflate(12))) {
+        for (Player p : level().getEntitiesOfClass(Player.class, getBoundingBox().inflate(14))) {
             p.sendSystemMessage(msg);
         }
     }
@@ -279,26 +410,42 @@ public class CitizenEntity extends PathfinderMob {
     protected void customServerAiStep() {
         super.customServerAiStep();
         if (speechCooldown > 0) speechCooldown--;
-        if (!initialized && level() instanceof ServerLevel sl && tickCount > 5) {
+        if (encounterCooldown > 0) encounterCooldown--;
+        if (animTicks > 0 && --animTicks == 0) entityData.set(ANIM, ANIM_NONE);
+        if (!(level() instanceof ServerLevel sl)) return;
+        if (!initialized && tickCount > 5) {
             // NPC из яйца призыва или из старого сохранения без данных
             setup(getFaction(), rank, getRandom(), GorodData.get(sl));
             GorodData.get(sl).npcs.put(getUUID(), getFaction());
         }
-        if (tickCount % 20 == 0 && level() instanceof ServerLevel sl) {
+        if (tickCount % 20 == 0) {
+            syncData();
             if (jailUntil > 0) {
                 if (sl.getGameTime() >= jailUntil) {
                     CrimeSystem.releaseNpc(sl, this);
+                    setAnim(ANIM_NONE, 0);
                 } else {
                     getNavigation().stop();
                     setTarget(null);
+                    if (getAnim() != ANIM_CUFFED) setAnim(ANIM_CUFFED, 0);
                 }
+            } else if (isProtesting() && getRandom().nextInt(3) == 0) {
+                setAnim(ANIM_PROTEST, 30);
+            }
+            if (order != Order.NONE && sl.getGameTime() > orderUntil) {
+                order = Order.NONE;
+                commander = null;
             }
         }
+        if (tickCount % 10 == 0 && !isJailed()) RankReactions.tickNpc(sl, this);
+        if (tickCount % 40 == 7 && encounterCooldown <= 0 && !isBusy() && !isTalking(sl)) Encounters.tryStart(sl, this);
     }
 
     @Override
     public InteractionResult mobInteract(Player player, InteractionHand hand) {
         if (hand != InteractionHand.MAIN_HAND) return InteractionResult.PASS;
+        ItemStack held = player.getItemInHand(hand);
+        if (held.is(ModItems.CUFFS.get())) return InteractionResult.PASS; // обрабатывает предмет
         if (!level().isClientSide && player instanceof ServerPlayer sp) {
             getNavigation().stop();
             getLookControl().setLookAt(player);
@@ -312,17 +459,37 @@ public class CitizenEntity extends PathfinderMob {
         boolean res = super.hurt(source, amount);
         if (res && !level().isClientSide && level() instanceof ServerLevel sl) {
             Entity attacker = source.getEntity();
+            if (bounty > 0 && attacker instanceof ServerPlayer sp && isAlive() && getHealth() < getMaxHealth() * 0.5f) {
+                // Задержание гражданином лица, совершившего преступление (ст. 38 УК РФ)
+                say("Всё, всё, сдаюсь! Не бейте!", true);
+                setAnim(ANIM_HANDS_UP, 60);
+                GorodData d = GorodData.get(sl);
+                ru.gorod.rusgorod.data.PlayerRecord pr = d.player(sp.getUUID());
+                pr.balance += bounty;
+                pr.civRep += 5;
+                sp.sendSystemMessage(Component.literal("Вы задержали преступника и передали полиции. Благодарность от потерпевшего: " + bounty + " ₽, +5 репутации.")
+                        .withStyle(ChatFormatting.GREEN));
+                bounty = 0;
+                CrimeSystem.jailNpc(sl, this, sp.getName().getString());
+                ru.gorod.rusgorod.net.Network.syncPlayer(sp);
+                return res;
+            }
             if (attacker instanceof LivingEntity le && le != this) {
                 CrimeSystem.onCitizenHurt(sl, this, le);
+                mood = Math.max(0, mood - 10);
                 // Свои вступаются (у ОПГ — «за своих», у силовиков — пресечение преступления)
                 for (CitizenEntity ally : sl.getEntitiesOfClass(CitizenEntity.class, getBoundingBox().inflate(16),
                         c -> c != this && c.isCombatant() && c.getFaction() == getFaction() && c.getTarget() == null && !c.isJailed())) {
                     if (!(le instanceof CitizenEntity lc && lc.getFaction() == ally.getFaction())) ally.setTarget(le);
                 }
-                if (getTarget() == null) setTarget(le);
+                if (getTarget() == null && !(le instanceof Player p && isCommander(p))) setTarget(le);
             }
         }
         return res;
+    }
+
+    public boolean isCommander(Player p) {
+        return commander != null && commander.equals(p.getUUID());
     }
 
     @Override
@@ -363,15 +530,18 @@ public class CitizenEntity extends PathfinderMob {
         t.put("Home", NbtUtils.writeBlockPos(home));
         t.put("Work", NbtUtils.writeBlockPos(work));
         t.putFloat("Criminality", criminality);
+        t.putInt("Mood", mood);
         t.putBoolean("NightShift", nightShift);
         t.putBoolean("Convicted", everConvicted);
         t.putBoolean("Informant", informant);
+        t.putBoolean("Drunk", drunk);
         ListTag w = new ListTag();
         for (Article a : wanted) w.add(StringTag.valueOf(a.name()));
         t.put("Wanted", w);
         t.putLong("JailUntil", jailUntil);
         t.putLong("ProtestUntil", protestUntil);
         t.putBoolean("Init", initialized);
+        t.putInt("Bounty", bounty);
     }
 
     @Override
@@ -384,23 +554,23 @@ public class CitizenEntity extends PathfinderMob {
         patronymic = t.getString("Patr");
         nickname = t.getString("Nick");
         female = t.getBoolean("Female");
-        rank = t.getInt("Rank");
+        rank = Math.min(t.getInt("Rank"), getFaction().topRank());
         profession = Profession.byName(t.getString("Profession"));
         home = NbtUtils.readBlockPos(t.getCompound("Home"));
         work = NbtUtils.readBlockPos(t.getCompound("Work"));
         criminality = t.getFloat("Criminality");
+        mood = t.contains("Mood") ? t.getInt("Mood") : 60;
         nightShift = t.getBoolean("NightShift");
         everConvicted = t.getBoolean("Convicted");
         informant = t.getBoolean("Informant");
+        drunk = t.getBoolean("Drunk");
         wanted.clear();
         ListTag w = t.getList("Wanted", Tag.TAG_STRING);
         for (int i = 0; i < w.size(); i++) wanted.add(Article.byName(w.getString(i)));
         jailUntil = t.getLong("JailUntil");
         protestUntil = t.getLong("ProtestUntil");
         initialized = t.getBoolean("Init");
-    }
-
-    public UUID uuid() {
-        return getUUID();
+        bounty = t.getInt("Bounty");
+        syncData();
     }
 }

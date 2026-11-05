@@ -3,6 +3,10 @@ package ru.gorod.rusgorod.client;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.model.PlayerModel;
+import net.minecraft.client.model.geom.builders.CubeDeformation;
+import net.minecraft.client.model.geom.builders.LayerDefinition;
+import net.minecraft.client.renderer.entity.player.PlayerRenderer;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.EntityRenderersEvent;
 import net.minecraftforge.client.event.RegisterGuiOverlaysEvent;
@@ -24,6 +28,25 @@ public final class ClientSetup {
         @SubscribeEvent
         public static void renderers(EntityRenderersEvent.RegisterRenderers event) {
             event.registerEntityRenderer(ModEntities.CITIZEN.get(), CitizenRenderer::new);
+        }
+
+        @SubscribeEvent
+        public static void layerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+            event.registerLayerDefinition(ClientLayers.EPAULETTE, InsigniaLayer::createLayer);
+            event.registerLayerDefinition(ClientLayers.UNIFORM,
+                    () -> LayerDefinition.create(PlayerModel.createMesh(new CubeDeformation(0.12F), false), 64, 64));
+        }
+
+        /** Форма и погоны на игроках. */
+        @SubscribeEvent
+        public static void addLayers(EntityRenderersEvent.AddLayers event) {
+            for (String skin : event.getSkins()) {
+                Object r = event.getSkin(skin);
+                if (r instanceof PlayerRenderer pr) {
+                    pr.addLayer(new UniformLayer(pr, event.getEntityModels()));
+                    pr.addLayer(new InsigniaLayer<>(pr, event.getEntityModels(), ClientRanks::insigniaForPlayer));
+                }
+            }
         }
 
         @SubscribeEvent

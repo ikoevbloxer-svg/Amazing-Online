@@ -50,6 +50,25 @@ public class FactionActionPacket {
             case "job_quit" -> JobManager.quit(p);
             case "job_action" -> JobManager.action(p, m.arg);
             case "uniform" -> FactionService.toggleUniform(p);
+            case "turf_attack" -> {
+                GorodData d = GorodData.get(p.serverLevel());
+                PlayerRecord r = d.player(p.getUUID());
+                ru.gorod.rusgorod.world.Turfs.Turf t = ru.gorod.rusgorod.world.Turfs.byId(d, m.arg);
+                if (t == null || !ru.gorod.rusgorod.world.Turfs.eligible(t, r.faction) || t.owner == r.faction) return;
+                if (r.rank < 1) {
+                    p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Собирать пацанов на дело могут только те, кто не «шестёрка». Подними авторитет.")
+                            .withStyle(net.minecraft.ChatFormatting.RED));
+                    return;
+                }
+                if (p.serverLevel().getGameTime() - t.lastWar < 3000) {
+                    p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Там только что была разборка. Подожди пару минут.")
+                            .withStyle(net.minecraft.ChatFormatting.RED));
+                    return;
+                }
+                ru.gorod.rusgorod.world.Turfs.startAssault(p.serverLevel(), d, t, r.faction, p);
+                p.sendSystemMessage(net.minecraft.network.chat.Component.literal("Точка «" + t.name + "»: X " + t.pos.getX() + ", Z " + t.pos.getZ()
+                        + ". Займите её и удерживайте, пока не заполнится прогресс захвата.").withStyle(net.minecraft.ChatFormatting.GOLD));
+            }
             case "uni_enroll" -> LawSchool.enroll(p);
             case "uni_exam" -> LawSchool.startExam(p);
             case "pay_fines" -> {

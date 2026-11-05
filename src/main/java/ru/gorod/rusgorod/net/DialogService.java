@@ -66,13 +66,44 @@ public final class DialogService {
         if (c.isProtesting()) body.append("§eУчастник публичного мероприятия.\n");
         if (c.drunk) body.append("§eЗаметно пьян.\n");
         if (pf.canArrest() && c.isWanted()) body.append("§cЧислится в розыске (ориентировка).\n");
+        int rel = c.relation(p.getUUID());
+        body.append("§7Отношение к вам: ").append(ru.gorod.rusgorod.social.Relations.fmt(rel))
+                .append(ru.gorod.rusgorod.social.Relations.label(rel)).append(" (").append(rel).append(")\n");
+        String turf = ru.gorod.rusgorod.world.Turfs.describe(d, c.blockPosition());
+        if (!turf.isEmpty() && (c.profession.isTrader() || cf.isCriminal())) body.append("§8").append(turf).append("\n");
 
         List<String[]> opts = new ArrayList<>();
+        // свидетель вашего преступления
+        if (p.getUUID().equals(c.witnessOf)) {
+            body.append("§cВидел ваше преступление и собирается звонить в полицию.\n");
+            opts.add(new String[]{"witness_bribe", "§cЗаплатить за молчание 2 000 ₽ (ст. 309 УК РФ)"});
+            opts.add(new String[]{"witness_threat", "§cЗапугать (ст. 309 ч. 2, ст. 119 УК РФ)"});
+            opts.add(new String[]{"witness_beg", "Попросить по-хорошему"});
+            send(p, c, body.toString(), opts);
+            return;
+        }
+        if (ru.gorod.rusgorod.social.NpcApproach.hasPending(p, c)) {
+            body.append("§eОн(а) ждёт вашего ответа.\n");
+        }
+        if (rel <= ru.gorod.rusgorod.social.Relations.DISLIKE && !c.isJailed()) {
+            body.append("§6Не хочет с вами разговаривать.\n");
+            opts.add(new String[]{"apologize", "Извиниться"});
+            opts.add(new String[]{"gift", "Загладить вину: подарить 500 ₽"});
+            if (pf.canArrest() && !cf.isState()) opts.add(new String[]{"check_docs", "Проверить документы (ст. 13 ФЗ «О полиции»)"});
+            if (pf.canArrest() && c.isWanted()) opts.add(new String[]{"arrest", "Задержать (ст. 91 УПК РФ)"});
+            send(p, c, body.toString(), opts);
+            return;
+        }
         opts.add(new String[]{"talk", "Поговорить"});
         if (c.isJailed()) {
             send(p, c, body.toString(), opts);
             return;
         }
+        opts.add(new String[]{"gift", "Подарить 500 ₽"});
+        if (rel >= ru.gorod.rusgorod.social.Relations.KNOWN) opts.add(new String[]{"tip", "«Что слышно в городе?»"});
+        if (rel >= ru.gorod.rusgorod.social.Relations.FRIEND && (cf == Faction.CIVILIAN || cf == pf) && c.order == CitizenEntity.Order.NONE)
+            opts.add(new String[]{"companion", "«Пойдём со мной» (10 минут)"});
+        if (c.profession.isTrader() || cf == Faction.CIVILIAN && c.profession == Profession.BARMAN) opts.add(new String[]{"whorules", "«Кто вас крышует?»"});
         if (cf.isState()) opts.add(new String[]{"introduce", "Попросить представиться"});
         if (cf != Faction.CIVILIAN) opts.add(new String[]{"boss", "Кто ваш начальник?"});
 
@@ -163,8 +194,91 @@ public final class DialogService {
         Faction cf = c.getFaction();
         c.getLookControl().setLookAt(p);
         String addr = Address.toPlayer(c, p, r);
+        if (option.startsWith("ap_")) {
+            ru.gorod.rusgorod.social.NpcApproach.handle(p, c, option);
+            return;
+        }
 
         switch (option) {
+            case "witness_bribe" -> {
+                if (!p.getUUID().equals(c.witnessOf)) return;
+                if (r.balance < 2000) {
+                    c.say("У тебя и денег-то нет.", true);
+                    return;
+                }
+                r.balance -= 2000;
+                if (rnd.nextInt(100) < 70) {
+                    c.witnessOf = null;
+                    c.setTarget(null);
+                    c.say("...Я ничего не видел. И тебя не знаю.", true);
+                    c.changeRelation(p.getUUID(), -5);
+                    // подкуп — сам по себе преступление, иногда всплывает
+                    if (rnd.nextInt(3) == 0) CrimeSystem.commitByPlayer(p, Article.UK_309, c);
+                } else {
+                    c.say("Взятку мне суёшь? Всё полиции расскажу, и про это тоже!", true);
+                    CrimeSystem.commitByPlayer(p, Article.UK_309, c);
+                }
+            }
+            case "witness_threat" -> {
+                if (!p.getUUID().equals(c.witnessOf)) return;
+                c.changeRelation(p.getUUID(), -40);
+                if (rnd.nextBoolean()) {
+                    c.witnessOf = null;
+                    c.say("Ладно, ладно! Молчу! Только не трогайте!", true);
+                    c.setAnim(CitizenEntity.ANIM_HANDS_UP, 60);
+                } else {
+                    c.say("Помогите! Мне угрожают!", true);
+                    CrimeSystem.commitByPlayer(p, Article.UK_119, c);
+                }
+            }
+            case "witness_beg" -> {
+                if (!p.getUUID().equals(c.witnessOf)) return;
+                if (c.relation(p.getUUID()) >= ru.gorod.rusgorod.social.Relations.KNOWN && rnd.nextBoolean()) {
+                    c.witnessOf = null;
+                    c.say("Эх... Ладно, ради тебя промолчу. Но больше так не делай.", true);
+                } else {
+                    c.say("Нет уж. Закон есть закон.", true);
+                }
+            }
+            case "apologize" -> {
+                if (rnd.nextInt(3) == 0) {
+                    c.changeRelation(p.getUUID(), 8);
+                    c.say("Ну... ладно. Посмотрим на тебя.", true);
+                } else {
+                    c.changeRelation(p.getUUID(), 2);
+                    c.say("Извинения не принимаются.", true);
+                }
+            }
+            case "gift" -> {
+                if (r.balance < 500) {
+                    msg(p, "Не хватает денег.", ChatFormatting.RED);
+                    return;
+                }
+                r.balance -= 500;
+                c.changeRelation(p.getUUID(), 10);
+                c.mood = Math.min(100, c.mood + 10);
+                // подарок должностному лицу — это уже взятка (ст. 290–291 УК, ст. 575 ГК)
+                if (cf.isState() && cf != Faction.CIVILIAN) {
+                    c.say("Вы что, это же взятка! Заберите немедленно.", true);
+                    r.balance += 500;
+                    c.changeRelation(p.getUUID(), -12);
+                    msg(p, "Должностным лицам дарить запрещено (ст. 575 ГК РФ). Деньги возвращены.", ChatFormatting.GRAY);
+                } else {
+                    c.say(cf.isCriminal() ? "Уважаю. Запомню." : "Ой, ну зачем вы... Спасибо большое!", true);
+                }
+            }
+            case "tip" -> c.say(ru.gorod.rusgorod.social.NpcApproach.tip(level, d, c), true);
+            case "companion" -> {
+                if (c.relation(p.getUUID()) < ru.gorod.rusgorod.social.Relations.FRIEND) return;
+                c.order = CitizenEntity.Order.FOLLOW;
+                c.commander = p.getUUID();
+                c.orderUntil = level.getGameTime() + 12000;
+                c.say(cf.isCriminal() ? "Пошли, прикрою." : "Конечно, пойдём! Куда?", true);
+            }
+            case "whorules" -> {
+                String w = ru.gorod.rusgorod.world.Turfs.whoRules(d, c.blockPosition());
+                c.say(w == null ? "Не понимаю, о чём вы." : (c.relation(p.getUUID()) >= ru.gorod.rusgorod.social.Relations.KNOWN || pf.isCriminal() ? w : "Ни о какой крыше не слышал. Идите."), true);
+            }
             case "talk" -> {
                 String[] lines = switch (cf.type) {
                     case CIVIL -> CIV_LINES;
@@ -180,6 +294,7 @@ public final class DialogService {
                 } else {
                     c.say(lines[rnd.nextInt(lines.length)]);
                 }
+                if (rnd.nextInt(4) == 0) c.changeRelation(p.getUUID(), 1);
                 QuestManager.onAction(p, "talk", c);
             }
             case "introduce" -> {
@@ -331,6 +446,7 @@ public final class DialogService {
                 r.balance += sum;
                 c.say(rnd.nextBoolean() ? "Берите и уходите..." : "Я в полицию пойду!");
                 c.mood = Math.max(0, c.mood - 15);
+                c.changeRelation(p.getUUID(), -20);
                 msg(p, "Получено " + sum + " ₽.", ChatFormatting.GOLD);
                 CrimeSystem.commitByPlayer(p, Article.UK_163, c);
                 QuestManager.onAction(p, "extort", c);
@@ -389,6 +505,11 @@ public final class DialogService {
     }
 
     private static void buy(ServerPlayer p, PlayerRecord r, CitizenEntity c, int price, ItemStack stack) {
+        if (c.relation(p.getUUID()) >= ru.gorod.rusgorod.social.Relations.FRIEND) {
+            price = price * 7 / 10;
+            c.say("Для своих — скидка!", true);
+        }
+        c.changeRelation(p.getUUID(), 1);
         if (r.balance < price) {
             c.say("Денег не хватает.");
             return;

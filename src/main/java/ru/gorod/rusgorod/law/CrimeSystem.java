@@ -115,11 +115,22 @@ public final class CrimeSystem {
         }
 
         // 2. Гражданские очевидцы и потерпевший — сообщение в полицию (ст. 141 УПК — заявление о преступлении)
-        int witnesses = level.getEntitiesOfClass(CitizenEntity.class, new AABB(pos).inflate(16),
-                c -> c != offender && c != victim && c.getFaction() == Faction.CIVILIAN && !c.isJailed() && c.hasLineOfSight(offender)).size();
+        List<CitizenEntity> seen = level.getEntitiesOfClass(CitizenEntity.class, new AABB(pos).inflate(16),
+                c -> c != offender && c != victim && c.getFaction() == Faction.CIVILIAN && !c.isJailed() && c.hasLineOfSight(offender));
+        // друзья игрока промолчат, недруги — сообщат обязательно
+        boolean hostileWitness = false;
+        if (offender instanceof ServerPlayer sp) {
+            seen.removeIf(c -> c.relation(sp.getUUID()) >= 50);
+            for (CitizenEntity c : seen) {
+                c.changeRelation(sp.getUUID(), a.administrative ? -3 : -15);
+                if (c.relation(sp.getUUID()) <= -30) hostileWitness = true;
+            }
+        }
+        int witnesses = seen.size();
         double report = 0;
         if (victim != null && victim.isAlive()) report = 0.6;
         if (witnesses > 0) report = Math.max(report, Math.min(0.9, 0.35 + 0.1 * witnesses));
+        if (hostileWitness) report = 1.0;
         if (a.administrative) report *= 0.3;
         if (r.nextDouble() >= report) return; // латентное правонарушение
 
@@ -127,7 +138,32 @@ public final class CrimeSystem {
             setWanted(level, offender, a);
             return;
         }
-        boolean identified = r.nextDouble() < (witnesses > 0 ? 0.55 : 0.3);
+        // свидетель-игроку: 30 секунд, чтобы договориться (или нарваться на ст. 309 УК)
+        if (offender instanceof ServerPlayer sp && witnesses > 0) {
+            CitizenEntity w = seen.get(0);
+            for (CitizenEntity c : seen) if (c.distanceToSqr(sp) < w.distanceToSqr(sp)) w = c;
+            final CitizenEntity witness = w;
+            witness.witnessOf = sp.getUUID();
+            witness.witnessArticle = a;
+            witness.say("Я всё видел! Сейчас позвоню в полицию!", true);
+            witness.setTarget(sp); // убегает от преступника
+            sp.sendSystemMessage(Component.literal("Свидетель " + witness.fullName() + " видел преступление и через 30 секунд позвонит в полицию. "
+                    + "Можно попробовать договориться (ПКМ по нему) — но подкуп и запугивание свидетеля сами по себе преступление (ст. 309 УК РФ).")
+                    .withStyle(ChatFormatting.YELLOW));
+            final int wn = witnesses;
+            ru.gorod.rusgorod.util.Scheduler.later(600, () -> {
+                if (!witness.isAlive() || witness.witnessOf == null) return; // договорились или убит
+                witness.witnessOf = null;
+                witness.say("Алло, полиция? Я свидетель преступления...", true);
+                fileReport(level, GorodData.get(level), a, offender, pos, wn);
+            });
+            return;
+        }
+        fileReport(level, d, a, offender, pos, witnesses);
+    }
+
+    private static void fileReport(ServerLevel level, GorodData d, Article a, LivingEntity offender, BlockPos pos, int witnesses) {
+        boolean identified = level.random.nextDouble() < (witnesses > 0 ? 0.55 : 0.3);
         CriminalCase cs = createCase(d, level, a, offender, identified, pos);
         notifyFaction(level, Faction.UMVD, "[Дежурная часть] Зарегистрировано сообщение о преступлении: " + a.full()
                 + " (КУСП №" + cs.id + "). Место: " + pos.getX() + ", " + pos.getZ(), ChatFormatting.AQUA);

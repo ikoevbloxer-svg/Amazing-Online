@@ -28,8 +28,8 @@ import java.util.function.Consumer;
  * Точка появления оказывается на дороге между 1-й и 2-й колонной кварталов; центр города — примерно в 75 блоках.
  */
 public final class CityGenerator {
-    public static final int PLOT = 24, ROAD = 6, PERIOD = PLOT + ROAD, GRID = 7;
-    public static final int SIZE = GRID * PERIOD + ROAD; // 216
+    public static final int PLOT = 24, ROAD = 6, PERIOD = PLOT + ROAD, GRID = 9;
+    public static final int SIZE = GRID * PERIOD + ROAD; // 276
     public static final String CITY_NAME = "Новоберёзовск";
 
     private static final Deque<Consumer<ServerLevel>> TASKS = new ArrayDeque<>();
@@ -40,17 +40,19 @@ public final class CityGenerator {
     enum Plot {
         PANEL5, PANEL9, STALINKA, PRIVATE, HOSTEL, SCHOOL, KINDERGARTEN, GARAGES, POLICE, GIBDD, SK, BIKERS, MARKET, PROK, ADMIN, FSB,
         COURT, WAREHOUSE, CAFE, SHOP, PARK, PARK2, FOUNTAIN, CHURCH, SIZO, RESTAURANT, UNIVERSITY, POST, HOSPITAL, BANK, MFC,
-        VOENKOMAT, VOKZAL, FACTORY, DK, AZS, BAR
+        VOENKOMAT, VOKZAL, FACTORY, DK, AZS, BAR, KIOSKS, SHAWARMA, AUTOSERVICE, SAUNA, PAWNSHOP, STADIUM
     }
 
     static final Plot[][] LAYOUT = {
-            {Plot.PRIVATE, Plot.PRIVATE, Plot.PANEL5, Plot.SCHOOL, Plot.PANEL5, Plot.GARAGES, Plot.AZS},
-            {Plot.PRIVATE, Plot.PANEL9, Plot.POLICE, Plot.GIBDD, Plot.SK, Plot.PANEL5, Plot.BIKERS},
-            {Plot.STALINKA, Plot.MARKET, Plot.PROK, Plot.ADMIN, Plot.FSB, Plot.COURT, Plot.WAREHOUSE},
-            {Plot.PANEL5, Plot.CAFE, Plot.SHOP, Plot.PARK, Plot.CHURCH, Plot.SIZO, Plot.FACTORY},
-            {Plot.PANEL9, Plot.RESTAURANT, Plot.UNIVERSITY, Plot.FOUNTAIN, Plot.BANK, Plot.MFC, Plot.HOSTEL},
-            {Plot.PANEL9, Plot.BAR, Plot.HOSPITAL, Plot.DK, Plot.POST, Plot.VOENKOMAT, Plot.PANEL5},
-            {Plot.STALINKA, Plot.PANEL5, Plot.KINDERGARTEN, Plot.PARK2, Plot.VOKZAL, Plot.PANEL9, Plot.PRIVATE},
+            {Plot.PRIVATE, Plot.PRIVATE, Plot.PANEL5, Plot.KIOSKS, Plot.PANEL5, Plot.SCHOOL, Plot.PANEL5, Plot.GARAGES, Plot.AZS},
+            {Plot.PRIVATE, Plot.PANEL9, Plot.PANEL5, Plot.SHAWARMA, Plot.POLICE, Plot.GIBDD, Plot.SK, Plot.PANEL5, Plot.BIKERS},
+            {Plot.PRIVATE, Plot.STALINKA, Plot.MARKET, Plot.PROK, Plot.ADMIN, Plot.FSB, Plot.COURT, Plot.AUTOSERVICE, Plot.WAREHOUSE},
+            {Plot.PANEL9, Plot.PANEL5, Plot.CAFE, Plot.SHOP, Plot.PARK, Plot.CHURCH, Plot.SIZO, Plot.PANEL5, Plot.FACTORY},
+            {Plot.PANEL9, Plot.SAUNA, Plot.RESTAURANT, Plot.UNIVERSITY, Plot.FOUNTAIN, Plot.BANK, Plot.MFC, Plot.HOSTEL, Plot.PANEL9},
+            {Plot.PANEL5, Plot.BAR, Plot.HOSPITAL, Plot.DK, Plot.POST, Plot.VOENKOMAT, Plot.PAWNSHOP, Plot.PANEL5, Plot.STALINKA},
+            {Plot.STALINKA, Plot.PANEL5, Plot.KINDERGARTEN, Plot.PARK2, Plot.STADIUM, Plot.PANEL9, Plot.PANEL5, Plot.PANEL9, Plot.PRIVATE},
+            {Plot.PANEL5, Plot.PANEL9, Plot.PANEL5, Plot.PANEL9, Plot.PANEL5, Plot.STALINKA, Plot.PANEL5, Plot.PANEL5, Plot.PRIVATE},
+            {Plot.PRIVATE, Plot.PRIVATE, Plot.PANEL5, Plot.PANEL9, Plot.VOKZAL, Plot.STALINKA, Plot.PANEL5, Plot.PRIVATE, Plot.PRIVATE},
     };
 
     public static boolean isRunning() {
@@ -81,7 +83,7 @@ public final class CityGenerator {
         d.minZ = spawn.getZ() - SIZE / 2;
         d.maxX = d.minX + SIZE - 1;
         d.maxZ = d.minZ + SIZE - 1;
-        int centerZ = d.minZ + PERIOD * 3 + 3; // дорога между 3-м и 4-м рядом — выезд к воинской части
+        int centerZ = d.minZ + PERIOD * 5 + 3; // дорога между 5-м и 6-м рядом — выезд к воинской части
         d.baseMinX = d.maxX + Config.BASE_DISTANCE.get();
         d.baseMinZ = centerZ - 31;
         d.baseMaxX = d.baseMinX + MilitaryBase.SIZE - 1;
@@ -93,6 +95,7 @@ public final class CityGenerator {
         d.ivsCells.clear();
         d.barracks.clear();
         d.roadSpots.clear();
+        d.turfs.clear();
         for (int i = 0; i <= GRID; i++)
             for (int j = 0; j <= GRID; j++)
                 d.nodes.add(new BlockPos(d.minX + 3 + PERIOD * i, gy + 1, d.minZ + 3 + PERIOD * j));
@@ -142,6 +145,7 @@ public final class CityGenerator {
             }
         // 6. Железная дорога вдоль южной окраины
         TASKS.add(l -> Buildings.railway(new B(l), d, minX, maxX, maxZ + 3, gy, minX + ROAD + 4 * PERIOD + 11));
+        TASKS.add(l -> Turfs.setup(d));
         // 7. Дорога к части, въездная стела и пост ДПС
         TASKS.add(l -> {
             B b = new B(l);
@@ -291,6 +295,12 @@ public final class CityGenerator {
             case DK -> Buildings.dk(b, d, px, pz, gy);
             case AZS -> Buildings.azs(b, d, px, pz, gy);
             case BAR -> Buildings.bar(b, d, px, pz, gy);
+            case KIOSKS -> Buildings.kiosks(b, d, px, pz, gy);
+            case SHAWARMA -> Buildings.shawarma(b, d, px, pz, gy);
+            case AUTOSERVICE -> Buildings.autoservice(b, d, px, pz, gy);
+            case SAUNA -> Buildings.sauna(b, d, px, pz, gy);
+            case PAWNSHOP -> Buildings.pawnshop(b, d, px, pz, gy);
+            case STADIUM -> Buildings.stadium(b, d, px, pz, gy);
         }
     }
 

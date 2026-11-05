@@ -65,7 +65,8 @@ public class CitizenEntity extends PathfinderMob {
 
     public static final int ANIM_NONE = 0, ANIM_SALUTE = 1, ANIM_HANDS_UP = 2, ANIM_PROTEST = 3, ANIM_TALK = 4, ANIM_CUFFED = 5, ANIM_POINT = 6;
 
-    public enum Order {NONE, FOLLOW, HOLD}
+    /** FOLLOW — за командиром, HOLD — охранять точку, ASSAULT — выехать «на точку» (война за территорию). */
+    public enum Order {NONE, FOLLOW, HOLD, ASSAULT}
 
     public String firstName = "Иван";
     public String lastName = "Иванов";
@@ -100,6 +101,14 @@ public class CitizenEntity extends PathfinderMob {
     public long talkUntil;
     /** Награда за задержание (городское событие): ослабленный ударами игрока — сдаётся. */
     public int bounty;
+    /** Отношение к конкретным игрокам: -100 (враг) … +100 (близкий друг). */
+    public final Map<UUID, Integer> relations = new HashMap<>();
+    /** Свидетель преступления игрока: пока не null — собирается звонить в полицию. */
+    public UUID witnessOf;
+    public Article witnessArticle;
+    /** Просьба проводить до дома: куда идём. */
+    public BlockPos escortTo;
+    public int approachCooldown = 600;
     public final Map<UUID, Long> greeted = new HashMap<>();
     private int speechCooldown;
     private int animTicks;
@@ -146,7 +155,7 @@ public class CitizenEntity extends PathfinderMob {
                 e -> this.getFaction().canArrest() && !this.isJailed() && CrimeSystem.isWanted(e)));
         // Конфликты между группировками
         this.targetSelector.addGoal(2, new NearestAttackableTargetGoal<>(this, CitizenEntity.class, 400, true, false,
-                e -> e instanceof CitizenEntity c && !this.isJailed() && !c.isJailed() && this.order == Order.NONE
+                e -> e instanceof CitizenEntity c && !this.isJailed() && !c.isJailed() && (this.order == Order.NONE || this.order == Order.ASSAULT)
                         && this.getFaction().isHostileTo(c.getFaction())));
     }
 
@@ -435,9 +444,12 @@ public class CitizenEntity extends PathfinderMob {
             if (order != Order.NONE && sl.getGameTime() > orderUntil) {
                 order = Order.NONE;
                 commander = null;
+                escortTo = null;
             }
         }
         if (tickCount % 10 == 0 && !isJailed()) RankReactions.tickNpc(sl, this);
+        if (approachCooldown > 0) approachCooldown--;
+        if (tickCount % 100 == 33 && approachCooldown <= 0 && !isBusy() && !isTalking(sl)) ru.gorod.rusgorod.social.NpcApproach.tick(sl, this);
         if (tickCount % 40 == 7 && encounterCooldown <= 0 && !isBusy() && !isTalking(sl)) Encounters.tryStart(sl, this);
     }
 
@@ -474,6 +486,7 @@ public class CitizenEntity extends PathfinderMob {
                 ru.gorod.rusgorod.net.Network.syncPlayer(sp);
                 return res;
             }
+            if (attacker instanceof Player pl) changeRelation(pl.getUUID(), -25);
             if (attacker instanceof LivingEntity le && le != this) {
                 CrimeSystem.onCitizenHurt(sl, this, le);
                 mood = Math.max(0, mood - 10);
@@ -486,6 +499,21 @@ public class CitizenEntity extends PathfinderMob {
             }
         }
         return res;
+    }
+
+    public int relation(UUID player) {
+        return relations.getOrDefault(player, 0);
+    }
+
+    public void changeRelation(UUID player, int delta) {
+        int v = Math.max(-100, Math.min(100, relation(player) + delta));
+        relations.put(player, v);
+        if (relations.size() > 40) {
+            UUID weakest = null;
+            for (Map.Entry<UUID, Integer> e : relations.entrySet())
+                if (weakest == null || Math.abs(e.getValue()) < Math.abs(relations.get(weakest))) weakest = e.getKey();
+            if (weakest != null && !weakest.equals(player)) relations.remove(weakest);
+        }
     }
 
     public boolean isCommander(Player p) {
@@ -542,6 +570,14 @@ public class CitizenEntity extends PathfinderMob {
         t.putLong("ProtestUntil", protestUntil);
         t.putBoolean("Init", initialized);
         t.putInt("Bounty", bounty);
+        ListTag rel = new ListTag();
+        for (Map.Entry<UUID, Integer> e : relations.entrySet()) {
+            CompoundTag rt = new CompoundTag();
+            rt.putUUID("P", e.getKey());
+            rt.putInt("V", e.getValue());
+            rel.add(rt);
+        }
+        t.put("Relations", rel);
     }
 
     @Override
@@ -571,6 +607,12 @@ public class CitizenEntity extends PathfinderMob {
         protestUntil = t.getLong("ProtestUntil");
         initialized = t.getBoolean("Init");
         bounty = t.getInt("Bounty");
+        relations.clear();
+        ListTag rel = t.getList("Relations", Tag.TAG_COMPOUND);
+        for (int i = 0; i < rel.size(); i++) {
+            CompoundTag rt = rel.getCompound(i);
+            if (rt.hasUUID("P")) relations.put(rt.getUUID("P"), rt.getInt("V"));
+        }
         syncData();
     }
 }

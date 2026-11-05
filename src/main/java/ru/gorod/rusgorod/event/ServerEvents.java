@@ -56,6 +56,7 @@ public class ServerEvents {
             Scheduler.tick(sl.getGameTime());
             CityManager.tick(sl);
             CityEvents.tick(sl);
+            ru.gorod.rusgorod.world.Turfs.tick(sl);
         }
     }
 

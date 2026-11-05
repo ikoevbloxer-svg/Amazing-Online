@@ -999,6 +999,7 @@ public final class Buildings {
         b.set(px + 20, gy + 2, pz + 17, Blocks.OAK_FENCE);
         b.fill(px + 17, gy + 3, pz + 17, px + 20, gy + 3, pz + 17, Blocks.OAK_SLAB);
         if (main) d.locs.put("park", new BlockPos(px + 11, gy + 1, pz + 16));
+        else d.locs.put("park2", new BlockPos(px + 11, gy + 1, pz + 16));
         d.roadSpots.add(new BlockPos(px + 11, gy + 1, pz + 5));
         d.roadSpots.add(new BlockPos(px + 5, gy + 1, pz + 12));
     }
@@ -1292,6 +1293,146 @@ public final class Buildings {
         }
         b.set(platformX, gy + 2, z - 3, Blocks.SPRUCE_FENCE);
         b.sign(platformX + 1, gy + 2, z - 3, Direction.SOUTH, "Платформа 1", "Новоберёзовск");
+    }
+
+    // =================================================================== бизнесы (за них воюют ОПГ)
+
+    /** Ряд ларьков: шаурма, табак, цветы, ремонт обуви. */
+    public static void kiosks(B b, GorodData d, int px, int pz, int gy) {
+        b.fill(px, gy, pz, px + 23, gy, pz + 23, Blocks.SMOOTH_STONE);
+        Block[] colors = {Blocks.BLUE_CONCRETE, Blocks.RED_CONCRETE, Blocks.GREEN_CONCRETE, Blocks.YELLOW_CONCRETE, Blocks.WHITE_CONCRETE};
+        String[][] names = {{"ТАБАК", "ПРЕССА"}, {"ЦВЕТЫ"}, {"ОВОЩИ", "ФРУКТЫ"}, {"РЕМОНТ", "ОБУВИ"}, {"СВЯЗНОЙ", "SIM-карты"}};
+        for (int k = 0; k < 5; k++) {
+            int x0 = px + 1 + k * 4, z0 = pz + 9;
+            b.walls(x0, gy + 1, z0, x0 + 3, gy + 3, z0 + 4, colors[k]);
+            b.fill(x0, gy + 4, z0, x0 + 3, gy + 4, z0 + 4, Blocks.SMOOTH_STONE_SLAB);
+            b.air(x0 + 1, gy + 1, z0 + 1, x0 + 2, gy + 3, z0 + 3);
+            b.fill(x0 + 1, gy + 2, z0 + 4, x0 + 2, gy + 2, z0 + 4, Blocks.GLASS_PANE);
+            b.set(x0 + 1, gy + 1, z0 + 4, topSlab(Blocks.SMOOTH_STONE_SLAB));
+            b.door(x0 + 1, gy + 1, z0, Direction.NORTH, Blocks.OAK_DOOR);
+            b.set(x0 + 2, gy + 1, z0 + 2, Blocks.BARREL);
+            b.sign(x0 + 2, gy + 3, z0 + 5, Direction.SOUTH, names[k]);
+        }
+        b.bench(px + 4, gy + 1, pz + 20, Direction.NORTH, 3);
+        b.bench(px + 15, gy + 1, pz + 20, Direction.NORTH, 3);
+        b.streetLamp(px + 11, gy + 1, pz + 18);
+        b.tree(px + 3, gy + 1, pz + 3, Blocks.BIRCH_LOG, Blocks.BIRCH_LEAVES);
+        b.tree(px + 20, gy + 1, pz + 3, Blocks.BIRCH_LOG, Blocks.BIRCH_LEAVES);
+        d.locs.put("kiosks", new BlockPos(px + 11, gy + 1, pz + 16));
+        d.roadSpots.add(new BlockPos(px + 9, gy + 1, pz + 21));
+    }
+
+    public static void shawarma(B b, GorodData d, int px, int pz, int gy) {
+        Info i = office(b, px + 5, pz + 8, 14, 10, 1, gy, Blocks.WHITE_TERRACOTTA, Blocks.ORANGE_CONCRETE, Blocks.SPRUCE_PLANKS,
+                Blocks.ORANGE_CONCRETE, Blocks.SPRUCE_DOOR,
+                new String[]{"ШАУРМА"}, new String[]{"«У Ашота»"}, new String[]{"24/7"});
+        b.fill(px + 7, gy + 1, pz + 10, px + 16, gy + 1, pz + 10, topSlab(Blocks.SMOOTH_STONE_SLAB));
+        b.set(px + 14, gy + 1, pz + 9, Blocks.SMOKER);
+        b.set(px + 15, gy + 1, pz + 9, Blocks.FURNACE);
+        for (int x : new int[]{px + 7, px + 15}) {
+            b.set(x, gy + 1, pz + 14, Blocks.SPRUCE_FENCE);
+            b.set(x, gy + 2, pz + 14, Blocks.WHITE_CARPET);
+        }
+        forecourt(b, px, pz, i.frontZ(), gy, Blocks.SMOOTH_STONE);
+        d.locs.put("shawarma", i.inside());
+    }
+
+    /** Автосервис: подъёмники, яма, покрышки. */
+    public static void autoservice(B b, GorodData d, int px, int pz, int gy) {
+        b.fill(px, gy, pz, px + 23, gy, pz + 23, Blocks.GRAY_CONCRETE);
+        int x0 = px + 2, z0 = pz + 3, x1 = px + 21, z1 = pz + 14;
+        b.walls(x0, gy + 1, z0, x1, gy + 5, z1, Blocks.LIGHT_GRAY_CONCRETE);
+        b.fill(x0, gy + 6, z0, x1, gy + 6, z1, Blocks.IRON_BLOCK);
+        b.air(x0 + 1, gy + 1, z0 + 1, x1 - 1, gy + 5, z1 - 1);
+        for (int k = 0; k < 3; k++) {
+            int gx = x0 + 2 + k * 6;
+            b.air(gx, gy + 1, z1, gx + 3, gy + 4, z1);
+            b.fill(gx, gy + 1, z0 + 3, gx + 3, gy + 1, z0 + 8, Blocks.GRAY_CONCRETE);
+            b.fill(gx + 1, gy, z0 + 4, gx + 2, gy, z0 + 7, Blocks.AIR);
+            b.set(gx, gy + 2, z0 + 2, Blocks.CHAIN);
+            b.set(gx, gy + 3, z0 + 2, Blocks.CHAIN);
+        }
+        b.fill(x1 - 3, gy + 1, z0 + 1, x1 - 1, gy + 2, z0 + 1, Blocks.BLACK_CONCRETE);
+        b.set(x1 - 1, gy + 1, z0 + 9, Blocks.ANVIL);
+        b.set(x1 - 2, gy + 1, z0 + 9, Blocks.SMITHING_TABLE);
+        for (int x = x0 + 3; x <= x1 - 3; x += 6) b.hangingLantern(x, gy + 5, z0 + 6);
+        b.set(px + 11, gy + 6, z1 + 1, Blocks.AIR);
+        b.sign(px + 11, gy + 5, z1 + 1, Direction.SOUTH, "АВТОСЕРВИС", "«ГАРАЖ»", "шиномонтаж");
+        b.set(px + 11, gy + 5, z1, Blocks.LIGHT_GRAY_CONCRETE);
+        // покрышки
+        for (int x = px + 2; x <= px + 6; x++) b.set(x, gy + 1, pz + 20, Blocks.BLACK_CONCRETE);
+        b.streetLamp(px + 22, gy + 1, pz + 22);
+        d.locs.put("autoservice", new BlockPos(px + 11, gy + 1, pz + 17));
+    }
+
+    /** Сауна «Берёзка» — точка русской ОПГ. */
+    public static void sauna(B b, GorodData d, int px, int pz, int gy) {
+        Info i = office(b, px + 3, pz + 6, 18, 12, 1, gy, Blocks.SPRUCE_PLANKS, Blocks.SPRUCE_LOG, Blocks.SPRUCE_PLANKS,
+                Blocks.DARK_OAK_PLANKS, Blocks.SPRUCE_DOOR,
+                new String[]{"САУНА"}, new String[]{"«БЕРЁЗКА»"}, new String[]{"Почасово", "Бильярд"});
+        // бассейн, парилка, бильярд
+        b.fill(px + 12, gy, pz + 8, px + 18, gy, pz + 11, Blocks.WATER);
+        b.walls(px + 5, gy + 1, pz + 7, px + 9, gy + 3, pz + 10, Blocks.SPRUCE_PLANKS);
+        b.air(px + 6, gy + 1, pz + 8, px + 8, gy + 3, pz + 9);
+        b.door(px + 7, gy + 1, pz + 10, Direction.SOUTH, Blocks.SPRUCE_DOOR);
+        b.set(px + 6, gy + 1, pz + 8, Blocks.MAGMA_BLOCK);
+        b.fill(px + 7, gy + 1, pz + 8, px + 8, gy + 1, pz + 8, topSlab(Blocks.SPRUCE_SLAB));
+        b.fill(px + 14, gy + 1, pz + 14, px + 16, gy + 1, pz + 15, Blocks.GREEN_WOOL);
+        b.set(px + 19, gy + 1, pz + 15, Blocks.CHEST);
+        b.sign(px + 7, gy + 3, pz + 11, Direction.SOUTH, "Парная");
+        forecourt(b, px, pz, i.frontZ(), gy, Blocks.SPRUCE_PLANKS);
+        b.fill(px + 2, gy + 1, pz + 20, px + 4, gy + 1, pz + 21, Blocks.BLACK_CONCRETE);
+        d.locs.put("sauna", i.inside());
+    }
+
+    /** Ломбард «Золотой». */
+    public static void pawnshop(B b, GorodData d, int px, int pz, int gy) {
+        Info i = office(b, px + 4, pz + 7, 16, 11, 2, gy, Blocks.POLISHED_BLACKSTONE_BRICKS, Blocks.GOLD_BLOCK, Blocks.DARK_OAK_PLANKS,
+                Blocks.POLISHED_BLACKSTONE, Blocks.DARK_OAK_DOOR,
+                new String[]{"ЛОМБАРД"}, new String[]{"«ЗОЛОТОЙ»"}, new String[]{"Скупка", "золота", "и техники"});
+        b.fill(px + 13, gy + 1, pz + 12, px + 18, gy + 1, pz + 12, topSlab(Blocks.SMOOTH_QUARTZ_SLAB));
+        b.fill(px + 13, gy + 2, pz + 12, px + 18, gy + 3, pz + 12, Blocks.IRON_BARS);
+        b.fill(px + 14, gy + 1, pz + 9, px + 18, gy + 1, pz + 9, Blocks.CHEST);
+        b.set(px + 16, gy + 2, pz + 9, Blocks.GOLD_BLOCK);
+        forecourt(b, px, pz, i.frontZ(), gy, Blocks.POLISHED_BLACKSTONE);
+        d.locs.put("pawnshop", i.inside());
+    }
+
+    /** Стадион «Труд»: поле, ворота, трибуны, прожекторы. */
+    public static void stadium(B b, GorodData d, int px, int pz, int gy) {
+        b.fill(px, gy, pz, px + 23, gy, pz + 23, Blocks.RED_TERRACOTTA);
+        b.fill(px + 3, gy, pz + 3, px + 20, gy, pz + 16, Blocks.GRASS_BLOCK);
+        for (int x = px + 3; x <= px + 20; x++) {
+            b.set(x, gy, pz + 3, Blocks.WHITE_CONCRETE);
+            b.set(x, gy, pz + 16, Blocks.WHITE_CONCRETE);
+        }
+        for (int z = pz + 3; z <= pz + 16; z++) {
+            b.set(px + 3, gy, z, Blocks.WHITE_CONCRETE);
+            b.set(px + 20, gy, z, Blocks.WHITE_CONCRETE);
+            b.set(px + 11, gy, z, Blocks.WHITE_CONCRETE);
+        }
+        for (int z : new int[]{pz + 8, pz + 11}) {
+            b.fill(px + 3, gy + 1, z, px + 3, gy + 2, z, Blocks.WHITE_CONCRETE);
+            b.fill(px + 20, gy + 1, z, px + 20, gy + 2, z, Blocks.WHITE_CONCRETE);
+        }
+        b.fill(px + 3, gy + 3, pz + 8, px + 3, gy + 3, pz + 11, Blocks.WHITE_CONCRETE);
+        b.fill(px + 20, gy + 3, pz + 8, px + 20, gy + 3, pz + 11, Blocks.WHITE_CONCRETE);
+        // трибуны
+        for (int k = 0; k < 3; k++) {
+            for (int x = px + 2; x <= px + 21; x++) {
+                b.stair(x, gy + 1 + k, pz + 18 + k, Blocks.STONE_BRICK_STAIRS, Direction.NORTH);
+                if (k > 0) b.set(x, gy + k, pz + 18 + k, Blocks.STONE_BRICKS);
+            }
+        }
+        b.fill(px + 2, gy + 1, pz + 21, px + 21, gy + 3, pz + 21, Blocks.STONE_BRICKS);
+        b.air(px + 11, gy + 1, pz + 18, px + 12, gy + 3, pz + 21);
+        // прожекторы
+        for (int[] o : new int[][]{{1, 1}, {22, 1}}) {
+            for (int y = gy + 1; y <= gy + 9; y++) b.set(px + o[0], y, pz + o[1], Blocks.IRON_BARS);
+            b.set(px + o[0], gy + 10, pz + o[1], Blocks.GLOWSTONE);
+        }
+        b.sign(px + 13, gy + 3, pz + 22, Direction.SOUTH, "СТАДИОН", "«ТРУД»");
+        d.locs.put("stadium", new BlockPos(px + 11, gy + 1, pz + 10));
     }
 
     private Buildings() {

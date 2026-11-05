@@ -22,7 +22,7 @@ import java.util.List;
 public class FactionScreen extends Screen {
     private static int tab = 0;
     private static Faction selected = Faction.UMVD;
-    private static final String[] TABS = {"Фракции", "Служба", "Структура", "Задания", "Работа", "Юрфак", "Город"};
+    private static final String[] TABS = {"Фракции", "Служба", "Структура", "Задания", "Работа", "Юрфак", "Город", "Районы"};
 
     private int x0, y0, w, h;
     private int cx, cy, cw;
@@ -67,6 +67,7 @@ public class FactionScreen extends Screen {
             case 4 -> initJobs(r);
             case 5 -> initUni(r);
             case 6 -> initCity(r);
+            case 7 -> initTurfs(r);
             default -> {
             }
         }
@@ -129,7 +130,7 @@ public class FactionScreen extends Screen {
         for (Quest q : list) {
             if (y > y0 + h - 22) break;
             boolean ok = r.rank >= q.minRank;
-            Button b = Button.builder(Component.literal((ok ? "" : "🔒 ") + q.title), btn -> act("quest_take", q.id))
+            Button b = Button.builder(Component.literal((ok ? "" : "[закрыто] ") + q.title), btn -> act("quest_take", q.id))
                     .bounds(x0 + 8, y, 200, 18).build();
             b.active = ok;
             b.setTooltip(Tooltip.create(Component.literal(q.description + "\n\n" + q.law + "\n\nНаграда: " + q.money + " ₽, " + q.points + " баллов"
@@ -185,6 +186,64 @@ public class FactionScreen extends Screen {
         }
     }
 
+    /** Строка территории из синхронизации: id|name|biz|owner|attacker|progress|x|z|income. */
+    private static String[] turfRow(String s) {
+        return s.split("\\|", -1);
+    }
+
+    private void initTurfs(PlayerRecord r) {
+        if (!r.faction.isCriminal() || r.rank < 1) return;
+        boolean biz = r.faction == Faction.RUS_MAFIA || r.faction == Faction.KAVKAZ_MAFIA;
+        int colW = (w - 20) / 2;
+        int[] rowIdx = {0, 0};
+        for (String s : ClientData.strings("turfs")) {
+            String[] t = turfRow(s);
+            if (t.length < 9) continue;
+            boolean isBiz = t[2].equals("1");
+            int col = isBiz ? 1 : 0;
+            int y = cy + 26 + rowIdx[col] * 19;
+            rowIdx[col]++;
+            if (isBiz != biz || t[3].equals(r.faction.id) || y > y0 + h - 20) continue;
+            final String id = t[0];
+            Button b = Button.builder(Component.literal("Наехать"), btn -> {
+                act("turf_attack", id);
+                onClose();
+            }).bounds(x0 + 8 + col * (colW + 4) + colW - 58, y - 3, 56, 15).build();
+            b.setTooltip(Tooltip.create(Component.literal("Собрать пацанов и поехать забирать точку. Нужно занять её и удержать, пока не заполнится захват.")));
+            addRenderableWidget(b);
+        }
+    }
+
+    private void renderTurfs(GuiGraphics g, PlayerRecord r) {
+        int y = cy;
+        text(g, "Улицы делят байкеры и скинхеды, бизнесы «крышуют» русская и кавказская ОПГ. Захват: люди группировки на точке без защитников. "
+                + "Полиция и ФСБ на бизнесе без бандитов «освобождают» его от рэкета. Владелец получает доход каждые сутки.", x0 + 8, y, w - 16, 0xFFAAAAAA);
+        int colW = (w - 20) / 2;
+        g.drawString(font, "УЛИЦЫ (байкеры / скинхеды)", x0 + 8, cy + 14, 0xFFFFD27A);
+        g.drawString(font, "БИЗНЕСЫ (русская / кавказская ОПГ)", x0 + 12 + colW, cy + 14, 0xFFFFD27A);
+        int[] rowIdx = {0, 0};
+        for (String s : ClientData.strings("turfs")) {
+            String[] t = turfRow(s);
+            if (t.length < 9) continue;
+            boolean isBiz = t[2].equals("1");
+            int col = isBiz ? 1 : 0;
+            int ry = cy + 26 + rowIdx[col] * 19;
+            rowIdx[col]++;
+            if (ry > y0 + h - 14) continue;
+            int rx = x0 + 8 + col * (colW + 4);
+            Faction owner = t[3].isEmpty() ? null : Faction.byId(t[3]);
+            int oc = owner == null ? 0xFF909090 : 0xFF000000 | (owner.color + 0x404040 & 0xFFFFFF);
+            g.fill(rx, ry - 2, rx + 3, ry + 12, owner == null ? 0xFF606060 : 0xFF000000 | owner.color);
+            String name = t[1];
+            if (font.width(name) > colW - 70) name = font.plainSubstrByWidth(name, colW - 76) + "…";
+            g.drawString(font, name, rx + 6, ry - 1, 0xFFFFFFFF);
+            String sub = (owner == null ? "ничья" : owner.title) + "  ·  X " + t[6] + " Z " + t[7] + "  ·  " + t[8] + " ₽/сут";
+            if (!t[4].isEmpty() && !t[5].equals("0")) sub = "захват: " + Faction.byId(t[4]).title + " " + t[5] + "%";
+            if (font.width(sub) > colW - 66) sub = font.plainSubstrByWidth(sub, colW - 72) + "…";
+            g.drawString(font, sub, rx + 6, ry + 8, t[4].isEmpty() || t[5].equals("0") ? oc : 0xFFFF7050);
+        }
+    }
+
     private void initCity(PlayerRecord r) {
         if (r.fineDebt > 0) {
             addRenderableWidget(Button.builder(Component.literal("Оплатить штрафы (" + r.fineDebt + " ₽) — «Госуслуги»"), b -> act("pay_fines", ""))
@@ -212,6 +271,7 @@ public class FactionScreen extends Screen {
                 case 3 -> renderQuests(g, r);
                 case 4 -> renderJobs(g, r);
                 case 5 -> renderUni(g, r);
+                case 7 -> renderTurfs(g, r);
                 default -> renderCity(g, r);
             }
         }
@@ -408,7 +468,7 @@ public class FactionScreen extends Screen {
         g.drawString(font, "Юридический институт г. Новоберёзовска", cx, y, 0xFFFFD27A);
         y += 12;
         if (r.legalEducation) {
-            y = text(g, "🎓 У вас есть диплом бакалавра юриспруденции.", cx, y, cw, 0xFF70FF70) + 4;
+            y = text(g, "У вас есть диплом бакалавра юриспруденции.", cx, y, cw, 0xFF70FF70) + 4;
             text(g, "Доступны: Следственный комитет, прокуратура, ФСБ, суд (после 3 суток стажа по юридической профессии), "
                     + "офицерские звания в полиции, ГИБДД, УФСИН и армии. Можно быть защитником в суде.", cx, y, cw, 0xFFE0E0E0);
             return;

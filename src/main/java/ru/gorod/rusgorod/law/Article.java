@@ -9,6 +9,7 @@ import ru.gorod.rusgorod.faction.Faction;
  */
 public enum Article {
     // ---------- КоАП РФ (административные) ----------
+    KOAP_5_61("ст. 5.61 КоАП РФ", "Оскорбление", true, Faction.PROK, Severity.ADMIN, 0, 3000),
     KOAP_6_1_1("ст. 6.1.1 КоАП РФ", "Побои", true, Faction.UMVD, Severity.ADMIN, 1200, 5000),
     KOAP_19_3("ст. 19.3 КоАП РФ", "Неповиновение законному требованию сотрудника полиции", true, Faction.UMVD, Severity.ADMIN, 1800, 2000),
     KOAP_20_1("ст. 20.1 КоАП РФ", "Мелкое хулиганство", true, Faction.UMVD, Severity.ADMIN, 1200, 1000),
@@ -23,6 +24,7 @@ public enum Article {
     UK_105("ст. 105 УК РФ", "Убийство", false, Faction.SK, Severity.ESPECIALLY_GRAVE, 24000, 0),
     UK_111("ст. 111 УК РФ", "Умышленное причинение тяжкого вреда здоровью", false, Faction.UMVD, Severity.GRAVE, 12000, 0),
     UK_115("ст. 115 УК РФ", "Умышленное причинение лёгкого вреда здоровью", false, Faction.UMVD, Severity.MINOR, 2400, 0),
+    UK_119("ст. 119 УК РФ", "Угроза убийством или причинением тяжкого вреда здоровью", false, Faction.UMVD, Severity.MINOR, 2400, 0),
     UK_158("ст. 158 УК РФ", "Кража", false, Faction.UMVD, Severity.MINOR, 3600, 0),
     UK_161("ст. 161 УК РФ", "Грабёж", false, Faction.UMVD, Severity.MEDIUM, 6000, 0),
     UK_162("ст. 162 УК РФ", "Разбой", false, Faction.UMVD, Severity.GRAVE, 9600, 0),
@@ -38,6 +40,7 @@ public enum Article {
     UK_282_1("ст. 282.1 УК РФ", "Организация экстремистского сообщества", false, Faction.SK, Severity.GRAVE, 12000, 0),
     UK_290("ст. 290 УК РФ", "Получение взятки", false, Faction.SK, Severity.GRAVE, 12000, 0),
     UK_291("ст. 291 УК РФ", "Дача взятки", false, Faction.SK, Severity.MEDIUM, 6000, 0),
+    UK_309("ст. 309 УК РФ", "Подкуп или принуждение к даче показаний", false, Faction.SK, Severity.MINOR, 3000, 0),
     UK_313("ст. 313 УК РФ", "Побег из места лишения свободы или из-под стражи", false, Faction.UMVD, Severity.MEDIUM, 6000, 0),
     UK_317("ст. 317 УК РФ", "Посягательство на жизнь сотрудника правоохранительного органа", false, Faction.SK, Severity.ESPECIALLY_GRAVE, 30000, 0),
     UK_318("ст. 318 УК РФ", "Применение насилия в отношении представителя власти", false, Faction.SK, Severity.MEDIUM, 7200, 0),

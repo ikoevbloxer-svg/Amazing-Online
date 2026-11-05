@@ -171,7 +171,7 @@ public final class LawSchool {
             return;
         }
         r.enrolled = true;
-        msg(p, "🎓 Приказ о зачислении подписан: вы студент юридического института (бюджет, заочная форма — ст. 17 ФЗ № 273-ФЗ «Об образовании»).", ChatFormatting.GOLD);
+        msg(p, "Приказ о зачислении подписан: вы студент юридического института (бюджет, заочная форма — ст. 17 ФЗ № 273-ФЗ «Об образовании»).", ChatFormatting.GOLD);
         msg(p, "Что дальше: приходите днём в аудиторию 101 (" + coords(p) + ") и стойте там " + LECTURE_SECONDS
                 + " сек — это одна лекция. По каждому предмету 2 лекции, потом экзамен. Подробно — G → «Юрфак».", ChatFormatting.YELLOW);
         Network.syncPlayer(p);
@@ -314,7 +314,7 @@ public final class LawSchool {
         lore.add(StringTag.valueOf(Component.Serializer.toJson(Component.literal("Юридический институт г. Новоберёзовска").withStyle(ChatFormatting.GRAY))));
         display.put("Lore", lore);
         if (!p.getInventory().add(diploma)) p.drop(diploma, false);
-        msg(p, "🎓 Государственная итоговая аттестация пройдена! Вам выдан диплом бакалавра юриспруденции.", ChatFormatting.GOLD);
+        msg(p, "Государственная итоговая аттестация пройдена! Вам выдан диплом бакалавра юриспруденции.", ChatFormatting.GOLD);
         msg(p, "Теперь доступны: Следственный комитет, прокуратура, ФСБ, суд (после стажа), офицерские звания в полиции, УФСИН и армии.", ChatFormatting.AQUA);
         GorodData.get(p.serverLevel()).addNews("Выпуск: " + p.getName().getString() + " окончил(а) юридический институт.");
     }

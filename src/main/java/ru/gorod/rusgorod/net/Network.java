@@ -112,6 +112,20 @@ public final class Network {
         }
         t.put("cases", cases);
         t.put("roster", roster(level, d, r.faction));
+        t.putString("turf", ru.gorod.rusgorod.world.Turfs.describe(d, p.blockPosition()));
+        CompoundTag rels = new CompoundTag();
+        for (CitizenEntity c : level.getEntitiesOfClass(CitizenEntity.class, p.getBoundingBox().inflate(16))) {
+            int v = c.relation(p.getUUID());
+            if (v != 0) rels.putInt(String.valueOf(c.getId()), v);
+        }
+        t.put("rels", rels);
+        ListTag turfs = new ListTag();
+        for (ru.gorod.rusgorod.world.Turfs.Turf x : d.turfs) {
+            turfs.add(StringTag.valueOf(x.id + "|" + x.name + "|" + (x.business ? 1 : 0) + "|" + (x.owner == null ? "" : x.owner.id) + "|"
+                    + (x.attacker == null ? "" : x.attacker.id) + "|" + Math.min(100, x.progress * 100 / ru.gorod.rusgorod.world.Turfs.CAPTURE)
+                    + "|" + x.pos.getX() + "|" + x.pos.getZ() + "|" + x.income));
+        }
+        t.put("turfs", turfs);
         sendTo(p, new SyncPacket(t));
     }
 

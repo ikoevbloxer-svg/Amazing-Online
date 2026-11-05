@@ -31,6 +31,13 @@ import java.util.UUID;
  */
 public final class ChatResponder {
     private static final Map<UUID, Long> MAT_WARN = new HashMap<>();
+    /** Оскорбления сотрудников: [количество, время последнего]. Повтор в течение 10 минут — розыск. */
+    private static final Map<UUID, long[]> COP_INSULT = new HashMap<>();
+    private static final String[] INSULTS = {"дурак", "идиот", "урод", "козел", "козёл", "лох", "тупой", "чмо", "дебил", "придурок", "кретин",
+            "скотина", "тварь", "мразь", "ублюдок", "сволочь", "дебилы", "уроды", "клоун", "петух", "шлюха", "жирный", "нищеброд"};
+    private static final String[] THREATS = {"убью", "урою", "завалю", "прибью", "зарежу", "пристрелю", "грохну", "закопаю", "порешу", "замочу", "убить тебя"};
+    private static final String[] COMPLIMENTS = {"молодец", "красав", "умница", "уважаю", "спасибо за службу", "хороший человек", "ты лучший",
+            "вы лучший", "красивая", "красивый", "добрый", "мастер"};
 
     /** Слово → ключ места в городе. */
     private static final String[][] PLACES = {
@@ -44,17 +51,22 @@ public final class ChatResponder {
             {"военкомат", "voenkomat"}, {"мфц", "mfc"}, {"паспорт", "mfc"}, {"госуслуг", "mfc"}, {"вокзал", "vokzal"}, {"поезд", "vokzal"},
             {"завод", "factory"}, {"дом культуры", "dk"}, {"дк", "dk"}, {"кино", "dk"}, {"заправк", "azs"}, {"азс", "azs"},
             {"рюмочн", "bar"}, {"бар", "bar"}, {"выпить", "bar"}, {"часть", "army_kpp"}, {"армия", "army_kpp"}, {"казарм", "army_kpp"},
-            {"общаг", "hostel"}, {"общежит", "hostel"}
+            {"общаг", "hostel"}, {"общежит", "hostel"},
+            {"шаурм", "shawarma"}, {"ларьк", "kiosks"}, {"ларек", "kiosks"}, {"киоск", "kiosks"}, {"автосервис", "autoservice"},
+            {"шиномонтаж", "autoservice"}, {"саун", "sauna"}, {"баня", "sauna"}, {"ломбард", "pawnshop"}, {"стадион", "stadium"},
+            {"фонтан", "fountain"}
     };
 
     private static final String[] PLACE_NAMES_KEYS = {"police", "gibdd", "gibdd_post", "sk", "prok", "fsb", "admin", "square", "sizo", "market", "shop",
             "cafe", "restaurant", "garages", "bikers", "warehouse", "park", "church", "university", "school", "post", "hospital", "bank", "court",
-            "voenkomat", "mfc", "vokzal", "factory", "dk", "azs", "bar", "army_kpp", "hostel"};
+            "voenkomat", "mfc", "vokzal", "factory", "dk", "azs", "bar", "army_kpp", "hostel",
+            "shawarma", "kiosks", "autoservice", "sauna", "pawnshop", "stadium", "fountain", "park2"};
     private static final String[] PLACE_NAMES = {"Отдел полиции", "Госавтоинспекция", "Пост ДПС", "Следственный комитет", "Прокуратура", "Управление ФСБ",
             "Администрация", "Площадь", "СИЗО-1", "Рынок «Центральный»", "Магазин «Продукты»", "Кафе «Шашлычный двор»", "Ресторан «Империя»",
             "Гаражный кооператив", "Мотоклуб", "Склад", "Парк Победы", "Храм", "Юридический институт", "Школа №1", "Почта", "Городская больница",
             "Банк", "Городской суд", "Военкомат", "МФЦ «Мои документы»", "Вокзал", "Машзавод", "Дом культуры", "АЗС", "Рюмочная «Встреча»",
-            "КПП воинской части", "Общежитие"};
+            "КПП воинской части", "Общежитие", "Шаурма «У Ашота»", "Ларьки у школы", "Автосервис «Гараж»", "Сауна «Берёзка»",
+            "Ломбард «Золотой»", "Стадион «Труд»", "Сквер с фонтаном", "Сквер у детсада"};
 
     private static final String[] JOKES = {
             "Приходит мужик в МФЦ за справкой, а ему: «Нужна справка, что вы не можете получить справку». Он и сейчас там стоит.",
@@ -94,10 +106,32 @@ public final class ChatResponder {
         if ((mat || insultCop) && cop != null && !r.faction.isLawEnforcement()) {
             final CitizenEntity c = cop;
             if (insultCop && p.distanceToSqr(cop) < 64) {
-                Scheduler.later(12, () -> {
-                    c.say("Публичное оскорбление представителя власти при исполнении — ст. 319 УК РФ. Вы задержаны!", true);
-                    CrimeSystem.commitByPlayer(p, Article.UK_319, c);
-                });
+                long now0 = level.getGameTime();
+                long[] st = COP_INSULT.get(p.getUUID());
+                if (st == null || now0 - st[1] > 12000) st = new long[]{0, now0};
+                st[0]++;
+                st[1] = now0;
+                COP_INSULT.put(p.getUUID(), st);
+                c.changeRelation(p.getUUID(), -15);
+                if (st[0] == 1 && c.relation(p.getUUID()) > ru.gorod.rusgorod.social.Relations.DISLIKE - 20) {
+                    Scheduler.later(12, () -> c.say("Гражданин, вы оскорбляете сотрудника при исполнении. Это последнее предупреждение — "
+                            + "повторите, и будете задержаны по ст. 319 УК РФ.", true));
+                    p.displayClientMessage(net.minecraft.network.chat.Component.literal("⚠ Предупреждение: оскорбление сотрудника. Повтор в течение 10 минут — розыск (ст. 319 УК РФ).")
+                            .withStyle(net.minecraft.ChatFormatting.RED), true);
+                } else {
+                    COP_INSULT.remove(p.getUUID());
+                    Scheduler.later(12, () -> {
+                        c.say("Вас предупреждали. Публичное оскорбление представителя власти — ст. 319 УК РФ. Вы задержаны!", true);
+                        CrimeSystem.commitByPlayer(p, Article.UK_319, c);
+                        if (!r.wanted.contains(Article.UK_319)) {
+                            r.wanted.add(Article.UK_319);
+                            ru.gorod.rusgorod.net.Network.syncPlayer(p);
+                        }
+                        c.setTarget(p);
+                    });
+                    // рецидив оскорблений полиции весь отдел запоминает
+                    for (CitizenEntity o : near) if (o.getFaction().isLawEnforcement()) o.changeRelation(p.getUUID(), -10);
+                }
                 return;
             }
             Long last = MAT_WARN.get(p.getUUID());
@@ -188,6 +222,88 @@ public final class ChatResponder {
             return;
         }
 
+        // ---- 6.5. угрозы (ст. 119 УК), оскорбления (ст. 5.61 КоАП), комплименты
+        if (Orders.has(m, THREATS)) {
+            CitizenEntity victim = lookedAt(p, near, 8);
+            if (victim == null) victim = nearest(p, near, 6, x -> !x.isJailed());
+            if (victim != null) {
+                final CitizenEntity v = victim;
+                v.changeRelation(p.getUUID(), -30);
+                if (v.isCombatant() && !v.getFaction().isState()) {
+                    Scheduler.later(10, () -> {
+                        v.say("Ты кому это сказал?! Ну давай, попробуй!", true);
+                        v.setTarget(p);
+                    });
+                } else {
+                    Scheduler.later(10, () -> {
+                        v.say(v.getFaction().isLawEnforcement() ? "Угроза убийством — ст. 119 УК РФ. Вы задержаны!" : "Помогите! Мне угрожают убийством!", true);
+                        if (!v.isCombatant()) v.setTarget(p); // убегает
+                    });
+                    if (v.getFaction().isLawEnforcement() || cop != null) CrimeSystem.commitByPlayer(p, Article.UK_119, v);
+                    else if (v.getFaction() == Faction.CIVILIAN) CrimeSystem.commitByPlayer(p, Article.UK_119, v);
+                }
+            }
+            return;
+        }
+        if (Orders.has(m, INSULTS)) {
+            CitizenEntity victim = lookedAt(p, near, 8);
+            if (victim == null) victim = nearest(p, near, 5, x -> !x.isJailed());
+            if (victim != null) {
+                final CitizenEntity v = victim;
+                v.changeRelation(p.getUUID(), -12);
+                int rel = v.relation(p.getUUID());
+                Faction vf = v.getFaction();
+                if (vf.isLawEnforcement() && !r.faction.isLawEnforcement()) {
+                    // оскорбление сотрудника обычными словами — та же логика рецидива
+                    long now0 = level.getGameTime();
+                    long[] st = COP_INSULT.getOrDefault(p.getUUID(), new long[]{0, now0});
+                    if (now0 - st[1] > 12000) st[0] = 0;
+                    st[0]++;
+                    st[1] = now0;
+                    COP_INSULT.put(p.getUUID(), st);
+                    if (st[0] >= 2) {
+                        COP_INSULT.remove(p.getUUID());
+                        Scheduler.later(12, () -> {
+                            v.say("Второй раз — это уже ст. 319 УК РФ. Руки за спину!", true);
+                            CrimeSystem.commitByPlayer(p, Article.UK_319, v);
+                            v.setTarget(p);
+                        });
+                    } else {
+                        Scheduler.later(12, () -> v.say("Выбирайте выражения. Ещё раз — задержу (ст. 319 УК РФ).", true));
+                    }
+                } else if (vf.isCriminal()) {
+                    Scheduler.later(10, () -> {
+                        v.say(rel <= -20 ? "Ты за базар ответишь!" : "Ещё раз так скажешь — пожалеешь.", true);
+                        if (rel <= -20) v.setTarget(p);
+                    });
+                } else {
+                    Scheduler.later(12, () -> v.say(rel <= ru.gorod.rusgorod.social.Relations.DISLIKE
+                            ? "Хам! Я на вас заявление напишу — оскорбление, ст. 5.61 КоАП!" : (v.female ? "Как вам не стыдно!" : "Сам такой."), true));
+                    if (rel <= ru.gorod.rusgorod.social.Relations.DISLIKE && rnd.nextBoolean()) {
+                        // заявление об оскорблении — дело частного обвинения, рассматривает прокуратура
+                        long day = level.getDayTime() / 24000L;
+                        r.fineDebt += Article.KOAP_5_61.fine;
+                        if (r.fineDueDay < 0) r.fineDueDay = day + 3;
+                        p.sendSystemMessage(net.minecraft.network.chat.Component.literal(v.fullName() + " написал(а) заявление. Постановление прокурора: штраф "
+                                + Article.KOAP_5_61.fine + " ₽ по ст. 5.61 КоАП РФ (оскорбление).").withStyle(net.minecraft.ChatFormatting.YELLOW));
+                        ru.gorod.rusgorod.net.Network.syncPlayer(p);
+                    }
+                }
+            }
+            return;
+        }
+        if (Orders.has(m, COMPLIMENTS)) {
+            CitizenEntity v = lookedAt(p, near, 8);
+            if (v == null) v = nearest(p, near, 5, x -> !x.isJailed());
+            if (v != null) {
+                final CitizenEntity fv = v;
+                fv.changeRelation(p.getUUID(), 3);
+                Scheduler.later(12, () -> fv.say(fv.getFaction().insignia ? "Служу России!" : (fv.getFaction().isCriminal() ? "Ну... спасибо, братан." : "Ой, спасибо, приятно!"), true));
+                if (fv.getFaction().insignia) fv.setAnim(CitizenEntity.ANIM_SALUTE, 30);
+            }
+            return;
+        }
+
         // ---- 7. адресат: по имени, по взгляду, ближайший
         CitizenEntity target = null;
         for (CitizenEntity c : near) {
@@ -229,6 +345,42 @@ public final class ChatResponder {
             }
             return "Не знаю такого места. Спросите про полицию, рынок, больницу, вокзал, институт...";
         }
+        int rel = c.relation(p.getUUID());
+        String pname = p.getName().getString();
+        // займи денег
+        if (Orders.has(m, "дай денег", "займи", "одолжи", "одолжите", "дай в долг", "денег дай")) {
+            if (cf.isState()) return "Я при исполнении, гражданин. Обратитесь в банк.";
+            if (rel >= Relations.FRIEND) {
+                PlayerRecord pr = GorodData.get(level).player(p.getUUID());
+                pr.balance += 500;
+                c.changeRelation(p.getUUID(), -8);
+                ru.gorod.rusgorod.net.Network.syncPlayer(p);
+                return "Держи пятьсот, " + pname + ". Отдашь, когда сможешь.";
+            }
+            return cf.isCriminal() ? "Под проценты дам. Десять в неделю. Не вернёшь — сам знаешь." : "Самому бы кто занял...";
+        }
+        // возраст, где живёшь
+        if (Orders.has(m, "сколько тебе лет", "сколько вам лет", "твой возраст")) {
+            int age = 18 + Math.floorMod(c.getUUID().hashCode(), 50);
+            return c.female && age > 35 ? "У женщин такое не спрашивают!" : "Мне " + age + ".";
+        }
+        if (Orders.has(m, "где живешь", "где живёшь", "где вы живете", "где вы живёте", "твой адрес")) {
+            if (rel < Relations.KNOWN) return "А тебе зачем? Не скажу.";
+            return "Да вот, X " + c.home.getX() + ", Z " + c.home.getZ() + ". Заходи, если что.";
+        }
+        if (Orders.has(m, "погода", "дождь", "холодно", "жарко")) {
+            return level.isRaining() ? "Льёт как из ведра. Зонт бы не помешал." : (level.isNight() ? "Ночь, прохладно. Домой пора." : "Погода хорошая, гуляйте!");
+        }
+        if (Orders.has(m, "кто крышует", "кто держит", "чей район", "чья территория", "кому платите", "кто тут хозяин")) {
+            String w = ru.gorod.rusgorod.world.Turfs.whoRules(GorodData.get(level), c.blockPosition());
+            if (w == null) return "Тут — ничья земля, вроде.";
+            return rel >= Relations.KNOWN || cf.isCriminal() ? w : "Не понимаю, о чём вы. Я ничего не знаю.";
+        }
+        if (Orders.has(m, "пошли выпьем", "выпьем", "по пиву", "бухнем")) {
+            if (cf.isState()) return "Не употребляю при исполнении.";
+            c.changeRelation(p.getUUID(), 2);
+            return c.mood < 50 ? "А пошли! В «Встречу», там недорого." : "Не, я сегодня не пью. Но спасибо.";
+        }
         // кто ты / звание / должность
         if (Orders.has(m, "кто ты", "кто вы", "представь", "как тебя зовут", "как вас зовут", "ваше звание", "твое звание", "твоё звание",
                 "кем работаешь", "кем работаете", "должность", "ваше имя")) {
@@ -252,6 +404,11 @@ public final class ChatResponder {
                 c.setAnim(CitizenEntity.ANIM_SALUTE, 30);
                 return "Здравия желаю, " + addr + "!";
             }
+            if (rel >= Relations.KNOWN) {
+                c.changeRelation(p.getUUID(), 1);
+                return pick(rnd, "О, " + pname + "! Привет-привет!", "Здорово, " + pname + "! Как сам?", pname + ", рад тебя видеть!");
+            }
+            if (rel <= Relations.DISLIKE) return pick(rnd, "Чего тебе?", "Опять ты...", "Иди своей дорогой.");
             return switch (cf.type) {
                 case STATE -> m.contains("здравия желаю") ? "Здравия желаю." : "Здравствуйте, " + addr + ".";
                 case CRIMINAL -> pick(rnd, "Ну, здорово, " + addr + ".", "Чего надо?", "Салам.");
@@ -274,6 +431,7 @@ public final class ChatResponder {
         }
         // спасибо
         if (Orders.has(m, "спасибо", "благодарю", "спс")) {
+            c.changeRelation(p.getUUID(), 1);
             if (cf == Faction.ARMY && m.contains("служб")) {
                 c.setAnim(CitizenEntity.ANIM_SALUTE, 30);
                 return "Служу России!";

@@ -52,6 +52,8 @@ public class GorodData extends SavedData {
     public long lastDay = -1;
     public BlockPos lastCrime = BlockPos.ZERO;
     public final LinkedList<String> news = new LinkedList<>();
+    /** Территории и бизнесы, за которые воюют группировки. */
+    public final List<ru.gorod.rusgorod.world.Turfs.Turf> turfs = new ArrayList<>();
 
     public static GorodData get(ServerLevel anyLevel) {
         ServerLevel ow = anyLevel.getServer().overworld();
@@ -154,6 +156,9 @@ public class GorodData extends SavedData {
         ListTag nw = new ListTag();
         for (String s : news) nw.add(StringTag.valueOf(s));
         t.put("news", nw);
+        ListTag tf = new ListTag();
+        for (ru.gorod.rusgorod.world.Turfs.Turf x : turfs) tf.add(x.save());
+        t.put("turfs", tf);
         return t;
     }
 
@@ -202,6 +207,8 @@ public class GorodData extends SavedData {
         d.lastCrime = NbtUtils.readBlockPos(t.getCompound("lastCrime"));
         ListTag nw = t.getList("news", Tag.TAG_STRING);
         for (int i = 0; i < nw.size(); i++) d.news.add(nw.getString(i));
+        ListTag tf = t.getList("turfs", Tag.TAG_COMPOUND);
+        for (int i = 0; i < tf.size(); i++) d.turfs.add(ru.gorod.rusgorod.world.Turfs.Turf.load(tf.getCompound(i)));
         return d;
     }
 

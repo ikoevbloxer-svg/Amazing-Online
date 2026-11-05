@@ -138,15 +138,41 @@ public class CitizenBrainGoal extends Goal {
         }
     }
 
-    /** Выполнение приказа командира: следовать за ним или охранять точку. */
+    /** Выполнение приказа: следовать за командиром, охранять точку, выехать «на точку», проводить до дома. */
     private void handleOrder(ServerLevel level) {
+        if (c.order == CitizenEntity.Order.ASSAULT) {
+            BlockPos h = c.holdPos;
+            double dist = Math.sqrt(c.distanceToSqr(h.getX() + 0.5, h.getY(), h.getZ() + 0.5));
+            if (dist > 4.0) {
+                if (--repath <= 0) {
+                    repath = 20;
+                    BlockPos step = h;
+                    if (dist > 40) {
+                        Vec3 dir = new Vec3(h.getX() - c.getX(), 0, h.getZ() - c.getZ()).normalize().scale(30);
+                        int sx = (int) Math.floor(c.getX() + dir.x), sz = (int) Math.floor(c.getZ() + dir.z);
+                        step = new BlockPos(sx, level.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, sx, sz), sz);
+                    }
+                    c.getNavigation().moveTo(step.getX() + 0.5, step.getY(), step.getZ() + 0.5, 1.1);
+                }
+            } else {
+                c.getNavigation().stop();
+            }
+            return;
+        }
         Player cmd = c.commander == null ? null : level.getPlayerByUUID(c.commander);
         if (cmd == null || !cmd.isAlive() || cmd.level() != c.level()) {
             c.order = CitizenEntity.Order.NONE;
             c.commander = null;
+            c.escortTo = null;
             return;
         }
         if (c.order == CitizenEntity.Order.FOLLOW) {
+            // провожают до дома: дошли — благодарим
+            if (c.escortTo != null && c.distanceToSqr(c.escortTo.getX() + 0.5, c.escortTo.getY(), c.escortTo.getZ() + 0.5) < 16
+                    && cmd instanceof net.minecraft.server.level.ServerPlayer sp) {
+                ru.gorod.rusgorod.social.NpcApproach.escortDone(sp, c);
+                return;
+            }
             double dist = c.distanceTo(cmd);
             if (dist > 48) {
                 c.teleportTo(cmd.getX() - cmd.getLookAngle().x * 2, cmd.getY(), cmd.getZ() - cmd.getLookAngle().z * 2);

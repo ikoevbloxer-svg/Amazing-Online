@@ -51,7 +51,7 @@ public final class CityManager {
         if (gt % 1200 == 0) litter(level, d);
         if (gt % 2400 == 0) maintainPopulation(level, d);
         if (gt % 20 == 0 && t >= 4000 && t < 4020) rallyCheck(level, d);
-        if (gt % 200 == 0) {
+        if (gt % 40 == 0) {
             for (ServerPlayer p : level.getServer().getPlayerList().getPlayers()) Network.syncPlayer(p);
         }
         if (gt % 600 == 300) Network.broadcastRanks(level.getServer());
@@ -107,6 +107,12 @@ public final class CityManager {
             }
         }
 
+        // доход с территорий и «крыши» в общак
+        for (Turfs.Turf t : d.turfs) {
+            if (t.owner == null) continue;
+            d.addFunds(t.owner, t.income);
+            if (t.business) changeSatisfaction(d, -0.3);
+        }
         if (d.budget < 0) {
             changeSatisfaction(d, -6);
             d.addNews("Бюджет: дефицит. Бюджетникам задерживают зарплату. Горожане недовольны.");

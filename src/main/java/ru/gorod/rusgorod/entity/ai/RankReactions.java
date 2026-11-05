@@ -46,6 +46,26 @@ public final class RankReactions {
         var rnd = c.getRandom();
         c.getLookControl().setLookAt(p);
 
+        // ---- личные отношения важнее формальностей
+        int rel = c.relation(p.getUUID());
+        String name = p.getName().getString();
+        if (rel <= ru.gorod.rusgorod.social.Relations.ENEMY && c.isCombatant() && !cf.isState()) {
+            c.say(rnd.nextBoolean() ? "А, это ты... Ну всё, держись!" : "Я тебя запомнил, " + name + ". Получай!");
+            c.setTarget(p);
+            return;
+        }
+        if (rel <= ru.gorod.rusgorod.social.Relations.DISLIKE) {
+            if (rnd.nextBoolean()) c.say(rnd.nextBoolean() ? "Опять этот " + name + "..." : "Тьфу. Глаза б мои не видели.");
+            return;
+        }
+        if (rel >= ru.gorod.rusgorod.social.Relations.KNOWN && !(cf.insignia && pf.insignia && Address.sameService(cf, pf))) {
+            String[] hi = rel >= ru.gorod.rusgorod.social.Relations.FRIEND
+                    ? new String[]{"О, " + name + "! Сколько лет, сколько зим!", name + ", дружище! Заходи как-нибудь.", "Привет, " + name + "! Как жизнь?"}
+                    : new String[]{"Здравствуй, " + name + ".", "О, " + name + ", привет.", "Добрый день, " + name + "!"};
+            c.say(hi[rnd.nextInt(hi.length)]);
+            return;
+        }
+
         // ---- одна служба: чинопочитание
         if (cf.isState() && pf.isState() && Address.sameService(cf, pf)) {
             int gp = Address.grade(pf, r.rank), gc = Address.grade(cf, c.rank);

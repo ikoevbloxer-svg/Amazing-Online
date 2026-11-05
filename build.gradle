@@ -56,6 +56,7 @@ tasks.named('processResources', ProcessResources).configure {
             mod_authors: mod_authors, mod_description: mod_description,
     ]
     inputs.properties replaceProperties
+    filteringCharset = 'UTF-8'
     filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
         expand replaceProperties
     }
@@ -63,4 +64,9 @@ tasks.named('processResources', ProcessResources).configure {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+// Имя jar для сервера CRAFTMAZING
+tasks.named('jar', Jar).configure {
+    archiveBaseName = 'CRAFTMAZING-RP'
 }

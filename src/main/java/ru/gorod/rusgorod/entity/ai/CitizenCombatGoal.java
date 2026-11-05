@@ -100,7 +100,7 @@ public class CitizenCombatGoal extends Goal {
             }
             if (shootCooldown <= 0) {
                 if (gun.npcShoot(level, c, c.getMainHandItem(), t)) {
-                    if (burst <= 0) burst = gun.spec.auto ? 2 + c.getRandom().nextInt(4) : 1;
+                 if (burst <= 0) burst = gun.spec.auto() ? 2 + c.getRandom().nextInt(4) : 1;
                     burst--;
                     shootCooldown = burst > 0 ? gun.spec.delay() + 1 : 18 + c.getRandom().nextInt(16) + (gun.spec.kind() == GunItem.Kind.SNIPER ? 25 : 0);
                 } else {
